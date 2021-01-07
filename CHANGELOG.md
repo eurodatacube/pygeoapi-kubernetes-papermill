@@ -1,3 +1,6 @@
+## 0.0.43
+* Switch to new repo and package
+
 ## 0.0.42
 * Improve s3 mount start detection
 
