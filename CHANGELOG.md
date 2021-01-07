@@ -1,4 +1,8 @@
 ## 0.0.43
+* Set async as default again
+* Add wps-client.py
+
+## 0.0.43
 * Switch to new repo and package
 
 ## 0.0.42
