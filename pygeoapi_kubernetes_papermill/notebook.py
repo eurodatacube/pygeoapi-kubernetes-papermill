@@ -162,7 +162,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         notebook_path = data["notebook"]
         parameters = data.get("parameters", "")
         if not parameters:
-            if (parameters_json := data.get("parameters_json")) :
+            if (parameters_json := data.get("parameters_json")) :  # noqa
                 parameters = b64encode(json.dumps(parameters_json).encode()).decode()
 
         # TODO: allow override from parameter
@@ -332,7 +332,7 @@ def notebook_job_output(result: JobDict) -> Tuple[Optional[str], Any]:
 
     if not scraps:
         return (None, {"result-link": result["result-link"]})
-    elif (result_file_scrap := scraps.get("result-file")) :
+    elif (result_file_scrap := scraps.get("result-file")) :  # noqa
         # if available, prefer file output
         specified_path = Path(result_file_scrap.data)
         result_file_path = (

@@ -145,9 +145,8 @@ def test_default_image_has_no_affinity(papermill_processor, create_pod_kwargs):
 def test_gpu_image_has_affinity(papermill_gpu_processor, create_pod_kwargs):
     job_pod_spec = papermill_gpu_processor.create_job_pod_spec(**create_pod_kwargs)
 
-    r = (
-        job_pod_spec.pod_spec.affinity.node_affinity.required_during_scheduling_ignored_during_execution
-    )
+    node_affinity = job_pod_spec.pod_spec.affinity.node_affinity
+    r = node_affinity.required_during_scheduling_ignored_during_execution
     assert r.node_selector_terms[0].match_expressions[0].values == ["g2"]
     assert job_pod_spec.pod_spec.tolerations[0].key == "hub.eox.at/gpu"
 

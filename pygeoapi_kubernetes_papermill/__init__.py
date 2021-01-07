@@ -1,3 +1,2 @@
-
-from .kubernetes import KubernetesManager
-from .notebook import PapermillNotebookKubernetesProcessor
+from .kubernetes import KubernetesManager  # noqa
+from .notebook import PapermillNotebookKubernetesProcessor  # noqa

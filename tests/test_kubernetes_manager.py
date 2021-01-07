@@ -46,7 +46,8 @@ def mock_k8s_base():
 @pytest.fixture()
 def mock_read_job():
     with mock.patch(
-        "pygeoapi_kubernetes_papermill.kubernetes.k8s_client.BatchV1Api.read_namespaced_job",
+        "pygeoapi_kubernetes_papermill."
+        "kubernetes.k8s_client.BatchV1Api.read_namespaced_job",
         return_value=k8s_client.V1Job(
             spec=k8s_client.V1JobSpec(
                 template="",
@@ -64,7 +65,8 @@ def mock_read_job():
 @pytest.fixture()
 def mock_create_job():
     with mock.patch(
-        "pygeoapi_kubernetes_papermill.kubernetes.k8s_client.BatchV1Api.create_namespaced_job",
+        "pygeoapi_kubernetes_papermill."
+        "kubernetes.k8s_client.BatchV1Api.create_namespaced_job",
         return_value=None,
     ) as mocker:
         yield mocker
@@ -73,7 +75,8 @@ def mock_create_job():
 @pytest.fixture()
 def mock_list_pods():
     with mock.patch(
-        "pygeoapi_kubernetes_papermill.kubernetes.k8s_client.CoreV1Api.list_namespaced_pod",
+        "pygeoapi_kubernetes_papermill."
+        "kubernetes.k8s_client.CoreV1Api.list_namespaced_pod",
         return_value=k8s_client.V1PodList(
             items=[
                 k8s_client.V1Pod(
@@ -103,7 +106,8 @@ def mock_list_pods():
 @pytest.fixture()
 def mock_delete_job():
     with mock.patch(
-        "pygeoapi_kubernetes_papermill.kubernetes.k8s_client.BatchV1Api.delete_namespaced_job",
+        "pygeoapi_kubernetes_papermill."
+        "kubernetes.k8s_client.BatchV1Api.delete_namespaced_job",
     ) as m:
         yield m
 

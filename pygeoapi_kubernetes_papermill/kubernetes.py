@@ -180,7 +180,7 @@ class KubernetesManager(BaseManager):
         # NOTE: it's a breach of abstraction to use notebook-related code here,
         #       but it's useful now and complicated approach doesn't seem warrented
         # avoid import loop
-        from pygeoapi.process.notebook import notebook_job_output
+        from .notebook import notebook_job_output
 
         job = self.get_job(process_id=process_id, job_id=job_id)
 
@@ -317,6 +317,7 @@ class KubernetesManager(BaseManager):
                         (interesting_states[0].reason, interesting_states[0].message),
                     )
                 )
+        return None
 
 
 _ANNOTATIONS_PREFIX = "pygeoapi.io/"
