@@ -1,0 +1,8 @@
+kubernetes
+nteract-scrapbook
+
+pytest
+pytest-watch
+flake8
+mypy
+black

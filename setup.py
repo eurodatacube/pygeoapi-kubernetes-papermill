@@ -1,7 +1,9 @@
 import setuptools
 
+
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
+
 
 setuptools.setup(
     name="pygeoapi-kubernetes-papermill",
@@ -9,6 +11,8 @@ setuptools.setup(
     author="Bernhard Mallinger",
     author_email="bernhard.mallinger@eox.com",
     description="Run notebooks on a k8s cluster via pygeoapi",
+    license="MIT",
+    install_requires=["kubernetes", "nteract-scrapbook"],
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/eurodatacube/pygeoapi-kubernetes-papermill",
