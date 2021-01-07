@@ -29,7 +29,6 @@
 
 from base64 import b64encode
 import copy
-from decimal import DivisionByZero
 import json
 from pathlib import Path
 from pygeoapi.process.base import ProcessorExecuteError

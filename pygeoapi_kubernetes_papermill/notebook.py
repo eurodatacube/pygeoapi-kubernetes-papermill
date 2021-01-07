@@ -164,7 +164,7 @@ class RequestParameters(TypedJsonMixin):
     @classmethod
     def from_dict(cls, data) -> "RequestParameters":
         # translate from json to base64
-        if (parameters_json := data.pop("parameters_json", None)) :
+        if (parameters_json := data.pop("parameters_json", None)) :  # noqa
             data["parameters"] = b64encode(
                 json.dumps(parameters_json).encode()
             ).decode()
@@ -215,8 +215,6 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         except (TypeError, KeyError) as e:
             raise ProcessorExecuteError(str(e)) from e
 
-        notebook_dir = working_dir(requested.notebook)
-
         output_notebook = setup_output_notebook(
             output_directory=self.output_directory,
             output_notebook_filename=requested.output_filename,
@@ -229,15 +227,6 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             extra_podspec["image_pull_secrets"] = [
                 k8s_client.V1LocalObjectReference(name=self.image_pull_secret)
             ]
-
-        resources = k8s_client.V1ResourceRequirements(
-            limits=drop_none_values(
-                {"cpu": requested.cpu_limit, "memory": requested.mem_limit}
-            ),
-            requests=drop_none_values(
-                {"cpu": requested.cpu_requests, "memory": requested.mem_requests}
-            ),
-        )
 
         extra_config = self._extra_configs()
 
@@ -266,13 +255,13 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 f'"{requested.notebook}" '
                 f'"{output_notebook}" '
                 "--engine kubernetes_job_progress "
-                f'--cwd "{notebook_dir}" '
+                f'--cwd "{working_dir(requested.notebook)}" '
                 + (f"-k {requested.kernel} " if requested.kernel else "")
                 + (f'-b "{requested.parameters}" ' if requested.parameters else ""),
             ],
             working_dir=str(CONTAINER_HOME),
             volume_mounts=extra_config.volume_mounts,
-            resources=resources,
+            resources=_resource_requirements(requested),
             env=[
                 # this is provided in jupyter worker containers and we also use it
                 # for compatibility checks
@@ -432,6 +421,23 @@ def working_dir(notebook_path: PurePath) -> PurePath:
         else (CONTAINER_HOME / notebook_path)
     )
     return abs_notebook_path.parent
+
+
+def _resource_requirements(requested: RequestParameters):
+    return k8s_client.V1ResourceRequirements(
+        limits=drop_none_values(
+            {
+                "cpu": requested.cpu_limit,
+                "memory": requested.mem_limit,
+            }
+        ),
+        requests=drop_none_values(
+            {
+                "cpu": requested.cpu_requests,
+                "memory": requested.mem_requests,
+            }
+        ),
+    )
 
 
 def gpu_extra_podspec() -> Dict:
