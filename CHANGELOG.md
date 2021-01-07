@@ -1,5 +1,10 @@
-## 0.0.43
+## 0.0.45
+* Validate job parameter
+
+## 0.0.44
 * Set async as default again
+
+## 0.0.43
 * Add wps-client.py
 
 ## 0.0.43
