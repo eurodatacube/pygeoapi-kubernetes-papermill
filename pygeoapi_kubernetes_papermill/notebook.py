@@ -27,8 +27,6 @@
 #
 # =================================================================
 
-from __future__ import annotations
-
 from base64 import b64encode, b64decode
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -40,9 +38,11 @@ import operator
 from pathlib import PurePath, Path
 import os
 import re
+from pygeoapi.process.base import ProcessorExecuteError
 import scrapbook
 import scrapbook.scraps
 from typing import Dict, Iterable, Optional, List, Tuple, Any
+from typed_json_dataclass import TypedJsonMixin
 import urllib.parse
 
 from kubernetes import client as k8s_client
@@ -120,6 +120,17 @@ CONTAINER_HOME = Path("/home/jovyan")
 S3_MOUNT_PATH = CONTAINER_HOME / "s3"
 S3_MOUNT_UID = "1000"
 S3_MOUNT_GID = "100"
+# we wait for the s3 mount (couldn't think of something better than this):
+# * first mount point is emptyDir owned by root.
+# * then it will be chowned to user by s3fs bash script, and finally also chowned
+#   to group by s3fs itself.
+# so when both uid and gid are set up, we should be good to go
+S3_MOUNT_WAIT_CMD = (
+    "while [ "
+    f"\"$(stat -c '%u %g' '{S3_MOUNT_PATH}')\" != '{S3_MOUNT_UID} {S3_MOUNT_GID}'"
+    " ] ; do echo 'wait for s3 mount'; sleep 0.01 ; done && "
+)
+
 
 # this just needs to be any unique id
 JOB_RUNNER_GROUP_ID = 20200
@@ -137,6 +148,36 @@ class ExtraConfig:
             volume_mounts=self.volume_mounts + other.volume_mounts,
             volumes=self.volumes + other.volumes,
         )
+
+
+@dataclass(frozen=True)
+class RequestParameters(TypedJsonMixin):
+    notebook: PurePath
+    kernel: str
+    output_filename: str
+    parameters: str = ""
+    cpu_limit: Optional[str] = None
+    mem_limit: Optional[str] = None
+    cpu_requests: Optional[str] = None
+    mem_requests: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, data) -> "RequestParameters":
+        # translate from json to base64
+        if (parameters_json := data.pop("parameters_json", None)) :
+            data["parameters"] = b64encode(
+                json.dumps(parameters_json).encode()
+            ).decode()
+
+        output_filename_str = data.get(
+            "output_filename",
+            default_output_path(data["notebook"]),
+        )
+        data["output_filename"] = PurePath(output_filename_str).name
+        data["notebook"] = PurePath(data["notebook"])
+
+        # don't use TypedJsonMixin.from_dict, return type is wrong
+        return cls(**data)
 
 
 class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
@@ -158,34 +199,30 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         job_name: str,
     ) -> KubernetesProcessor.JobPodSpec:
         LOGGER.debug("Starting job with data %s", data)
-        # TODO: add more formal data parsing (typed-json-dataclass?)
-        notebook_path = data["notebook"]
-        parameters = data.get("parameters", "")
-        if not parameters:
-            if (parameters_json := data.get("parameters_json")) :  # noqa
-                parameters = b64encode(json.dumps(parameters_json).encode()).decode()
 
-        # TODO: allow override from parameter
+        # TODO: allow override from parameter, possibly restrict
         image = self.default_image
         image_name = image.split(":")[0]
-
-        is_gpu = image_name == "eurodatacube/jupyter-user-g"
 
         default_kernel = {
             "eurodatacube/jupyter-user": "edc",
             "eurodatacube/jupyter-user-g": "edc-gpu",
         }.get(image_name, "")
-        kernel: str = data.get("kernel", default_kernel)
+        data.setdefault("kernel", default_kernel)
 
-        notebook_dir = working_dir(PurePath(notebook_path))
+        try:
+            requested = RequestParameters.from_dict(data)
+        except (TypeError, KeyError) as e:
+            raise ProcessorExecuteError(str(e)) from e
+
+        notebook_dir = working_dir(requested.notebook)
 
         output_notebook = setup_output_notebook(
             output_directory=self.output_directory,
-            output_notebook_filename=PurePath(
-                data.get("output_filename", default_output_path(notebook_path))
-            ).name,
+            output_notebook_filename=requested.output_filename,
         )
 
+        is_gpu = image_name == "eurodatacube/jupyter-user-g"
         extra_podspec = gpu_extra_podspec() if is_gpu else {}
 
         if self.image_pull_secret:
@@ -195,49 +232,15 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
 
         resources = k8s_client.V1ResourceRequirements(
             limits=drop_none_values(
-                {
-                    "cpu": data.get("cpu_limit"),
-                    "memory": data.get("mem_limit"),
-                }
+                {"cpu": requested.cpu_limit, "memory": requested.mem_limit}
             ),
             requests=drop_none_values(
-                {
-                    "cpu": data.get("cpu_requests"),
-                    "memory": data.get("mem_requests"),
-                }
+                {"cpu": requested.cpu_requests, "memory": requested.mem_requests}
             ),
         )
 
-        def extra_configs() -> Iterable[ExtraConfig]:
-            if self.home_volume_claim_name:
-                yield home_volume_config(self.home_volume_claim_name)
+        extra_config = self._extra_configs()
 
-            yield from (
-                extra_pvc_config(extra_pvc={**extra_pvc, "num": num})
-                for num, extra_pvc in enumerate(self.extra_pvcs)
-            )
-
-            if self.s3:
-                yield s3_config(
-                    bucket_name=self.s3["bucket_name"],
-                    secret_name=self.s3["secret_name"],
-                    s3_url=self.s3["s3_url"],
-                )
-
-        # we wait for the s3 mount (couldn't think of something better than this):
-        # * first mount point is emptyDir owned by root.
-        # * then it will be chowned to user by s3fs bash script, and finally also chowned
-        #   to group by s3fs itself.
-        # so when both uid and gid are set up, we should be good to go
-        s3_mount_wait = (
-            "while [ "
-            f"\"$(stat -c '%u %g' '{S3_MOUNT_PATH}')\" != '{S3_MOUNT_UID} {S3_MOUNT_GID}'"
-            " ] ; do echo 'wait for s3 mount'; sleep 0.01 ; done && "
-            if self.s3
-            else ""
-        )
-
-        extra_config = functools.reduce(operator.add, extra_configs())
         notebook_container = k8s_client.V1Container(
             name="notebook",
             image=image,
@@ -251,7 +254,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 #       setup
                 "-i",
                 "-c",
-                s3_mount_wait +
+                (S3_MOUNT_WAIT_CMD if self.s3 else "") +
                 # TODO: weird bug: removing this ls results in a PermissionError when
                 #       papermill later writes to the file. This only happens sometimes,
                 #       but when it occurs, it does so consistently. I'm leaving that in
@@ -260,12 +263,12 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 #       especially on s3fs)
                 f"ls -la {self.output_directory} && "
                 f"papermill "
-                f'"{notebook_path}" '
+                f'"{requested.notebook}" '
                 f'"{output_notebook}" '
                 "--engine kubernetes_job_progress "
                 f'--cwd "{notebook_dir}" '
-                + (f"-k {kernel} " if kernel else "")
-                + (f'-b "{parameters}" ' if parameters else ""),
+                + (f"-k {requested.kernel} " if requested.kernel else "")
+                + (f'-b "{requested.parameters}" ' if requested.parameters else ""),
             ],
             working_dir=str(CONTAINER_HOME),
             volume_mounts=extra_config.volume_mounts,
@@ -295,7 +298,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
 
         # save parameters but make sure the string is not too long
         extra_annotations = {
-            "parameters": b64decode(parameters).decode()[:8000],
+            "parameters": b64decode(requested.parameters).decode()[:8000],
             "result-link": result_link,
             "result-notebook": str(output_notebook),
         }
@@ -317,6 +320,25 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             ),
             extra_annotations=extra_annotations,
         )
+
+    def _extra_configs(self) -> ExtraConfig:
+        def extra_configs() -> Iterable[ExtraConfig]:
+            if self.home_volume_claim_name:
+                yield home_volume_config(self.home_volume_claim_name)
+
+            yield from (
+                extra_pvc_config(extra_pvc={**extra_pvc, "num": num})
+                for num, extra_pvc in enumerate(self.extra_pvcs)
+            )
+
+            if self.s3:
+                yield s3_config(
+                    bucket_name=self.s3["bucket_name"],
+                    secret_name=self.s3["secret_name"],
+                    s3_url=self.s3["s3_url"],
+                )
+
+        return functools.reduce(operator.add, extra_configs())
 
     def __repr__(self):
         return "<PapermillNotebookKubernetesProcessor> {}".format(self.name)

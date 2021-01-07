@@ -29,8 +29,10 @@
 
 from base64 import b64encode
 import copy
+from decimal import DivisionByZero
 import json
 from pathlib import Path
+from pygeoapi.process.base import ProcessorExecuteError
 import pytest
 import stat
 from typing import Dict
@@ -220,6 +222,14 @@ def test_no_kernel_specified_if_not_detected(papermill_processor, create_pod_kwa
     job_pod_spec = papermill_processor.create_job_pod_spec(**create_pod_kwargs)
 
     assert "-k " not in str(job_pod_spec.pod_spec.containers[0].command)
+
+
+def test_error_for_invalid_parameter_is_raised(papermill_processor, create_pod_kwargs):
+    create_pod_kwargs = copy.deepcopy(create_pod_kwargs)
+    create_pod_kwargs["data"]["not_a_valid_parameter"] = 3
+
+    with pytest.raises(ProcessorExecuteError):
+        papermill_processor.create_job_pod_spec(**create_pod_kwargs)
 
 
 @pytest.fixture
