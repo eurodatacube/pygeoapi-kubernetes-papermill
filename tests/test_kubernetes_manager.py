@@ -36,7 +36,6 @@ from pygeoapi_kubernetes_papermill import KubernetesManager
 from pygeoapi_kubernetes_papermill import PapermillNotebookKubernetesProcessor
 
 
-
 @pytest.fixture()
 def mock_k8s_base():
     with mock.patch("pygeoapi_kubernetes_papermill.kubernetes.k8s_config"):
@@ -120,7 +119,9 @@ def test_deleting_job_deletes_in_k8s_and_on_nb_file_on_disc(
     mock_list_pods,
     mock_delete_job,
 ):
-    with mock.patch("pygeoapi_kubernetes_papermill.kubernetes.os.remove") as mock_os_remove:
+    with mock.patch(
+        "pygeoapi_kubernetes_papermill.kubernetes.os.remove"
+    ) as mock_os_remove:
         result = manager.delete_job(1, 2)
 
     assert result
@@ -145,17 +146,19 @@ def papermill_processor() -> PapermillNotebookKubernetesProcessor:
 
 
 def test_execute_process_starts_job(
-    manager: KubernetesManager, papermill_processor, mock_create_job,
+    manager: KubernetesManager,
+    papermill_processor,
+    mock_create_job,
 ):
     job_id = "abc"
     result = manager.execute_process(
         p=papermill_processor,
         job_id=job_id,
-        data_dict={'notebook': 'a.ipynb'},
+        data_dict={"notebook": "a.ipynb"},
         is_async=True,
     )
     assert result == (None, JobStatus.accepted)
 
-    job: k8s_client.V1Job = mock_create_job.mock_calls[0][2]['body']
+    job: k8s_client.V1Job = mock_create_job.mock_calls[0][2]["body"]
     assert job_id in job.metadata.name
-    assert job.metadata.annotations['pygeoapi.io/identifier'] == job_id
+    assert job.metadata.annotations["pygeoapi.io/identifier"] == job_id

@@ -168,9 +168,7 @@ class KubernetesManager(BaseManager):
         # we could update the metadata by changing the job annotations
         raise NotImplementedError("Currently there's no use case for updating k8s jobs")
 
-    def get_job_result(
-        self, process_id, job_id
-    ) -> Tuple[Optional[Any], Optional[str]]:
+    def get_job_result(self, process_id, job_id) -> Tuple[Optional[Any], Optional[str]]:
         """
         Returns the actual output from a completed process
 
