@@ -1,6 +1,7 @@
 FROM geopython/pygeoapi:latest
 
-ADD async-as-default.patch .
+# Add minor patch to set async as default behavior
+COPY async-as-default.patch .
 RUN apt update \
   && apt install patch \
   && patch -p0 < async-as-default.patch
@@ -8,8 +9,8 @@ RUN apt update \
 RUN mkdir /pkp
 WORKDIR /pkp
 
-ADD requirements.txt .
+COPY requirements.txt .
 RUN python3 -m pip install -r requirements.txt
 
-ADD . .
+COPY . .
 RUN python3 setup.py install
