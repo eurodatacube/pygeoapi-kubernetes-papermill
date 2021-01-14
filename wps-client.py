@@ -40,16 +40,16 @@ def main(notebook, output_filename, parameters, wps_endpoint, cpu, mem, kernel):
     def parameter(key, value):
         return dict(id=key, value=value)
 
-    cpu_request, cpu_limit = parse_cpu(cpu)
-    mem_request, mem_limit = parse_mem(mem)
+    cpu_requests, cpu_limit = parse_cpu(cpu)
+    mem_requests, mem_limit = parse_mem(mem)
 
     # trick to "record" execution parameters
     parameters["_execution"] = dict(
         notebook=notebook,
         output_filename=output_filename,
-        cpu_request=cpu_request,
+        cpu_requests=cpu_requests,
         cpu_limit=cpu_limit,
-        mem_request=mem_request,
+        mem_requests=mem_requests,
         mem_limit=mem_limit,
         kernel=kernel,
     )
@@ -60,11 +60,11 @@ def main(notebook, output_filename, parameters, wps_endpoint, cpu, mem, kernel):
     ] + ([parameter("output_filename", output_filename)] if output_filename else [])
 
     if cpu:
-        inputs.append(parameter("cpu_request", cpu_request))
+        inputs.append(parameter("cpu_requests", cpu_requests))
         inputs.append(parameter("cpu_limit", cpu_limit))
 
     if mem:
-        inputs.append(parameter("mem_request", mem_request))
+        inputs.append(parameter("mem_requests", mem_requests))
         inputs.append(parameter("mem_limit", mem_limit))
 
     if kernel:
