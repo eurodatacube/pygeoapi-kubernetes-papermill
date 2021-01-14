@@ -12,7 +12,8 @@ import json
 @click.option("--output_filename", default=None, type=click.Path())
 @click.option("--cpu", default=None, help="number of CPUs format: request/limit")
 @click.option("--mem", default=None, help="memory in GB format: request/limit")
-def main(notebook, output_filename, parameters, wps_endpoint, cpu, mem):
+@click.option("--kernel", default=None)
+def main(notebook, output_filename, parameters, wps_endpoint, cpu, mem, kernel):
     parameters = parameters or {}
 
     def parse_limit_reqest(param):
@@ -50,6 +51,7 @@ def main(notebook, output_filename, parameters, wps_endpoint, cpu, mem):
         cpu_limit=cpu_limit,
         mem_request=mem_request,
         mem_limit=mem_limit,
+        kernel=kernel,
     )
 
     inputs = [
@@ -64,6 +66,9 @@ def main(notebook, output_filename, parameters, wps_endpoint, cpu, mem):
     if mem:
         inputs.append(parameter("mem_request", mem_request))
         inputs.append(parameter("mem_limit", mem_limit))
+
+    if kernel:
+        inputs.append(parameter("kernel", kernel))
 
     print("Sending request:")
     pprint.pprint(inputs)
