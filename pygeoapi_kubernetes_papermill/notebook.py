@@ -327,7 +327,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                     s3_url=self.s3["s3_url"],
                 )
 
-        return functools.reduce(operator.add, extra_configs())
+        return functools.reduce(operator.add, extra_configs(), ExtraConfig())
 
     def __repr__(self):
         return "<PapermillNotebookKubernetesProcessor> {}".format(self.name)
