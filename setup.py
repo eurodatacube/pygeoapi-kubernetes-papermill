@@ -12,7 +12,7 @@ setuptools.setup(
     author_email="bernhard.mallinger@eox.com",
     description="Run notebooks on a k8s cluster via pygeoapi",
     license="MIT",
-    install_requires=["kubernetes", "scrapbook"],
+    install_requires=["kubernetes", "scrapbook", "typed_json_dataclass==1.2.1"],
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/eurodatacube/pygeoapi-kubernetes-papermill",
