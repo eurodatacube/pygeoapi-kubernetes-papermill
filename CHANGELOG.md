@@ -1,5 +1,5 @@
-## 0.0.47
-* Build error
+## 0.0.47, 0.0.48
+* Fix build issues
 
 ## 0.0.46
 * Don't wait for s3 forever
