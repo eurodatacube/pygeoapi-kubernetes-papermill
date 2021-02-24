@@ -125,7 +125,8 @@ S3_MOUNT_GID = "100"
 # * then it will be chowned to user by s3fs bash script, and finally also chowned
 #   to group by s3fs itself.
 # so when both uid and gid are set up, we should be good to go
-# however the mount may fail, in which case we don't want to wait forever, so we count attempts
+# however the mount may fail, in which case we don't want to wait forever,
+# so we count attempts
 S3_MOUNT_WAIT_CMD = (
     "ATTEMPTS=0; "
     "while "

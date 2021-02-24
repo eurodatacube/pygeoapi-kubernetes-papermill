@@ -1,3 +1,6 @@
+## 0.0.47
+* Build error
+
 ## 0.0.46
 * Don't wait for s3 forever
 * Fix crash when no extra config is specified
