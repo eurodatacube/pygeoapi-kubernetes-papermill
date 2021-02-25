@@ -209,6 +209,7 @@ class KubernetesManager(BaseManager):
             self.batch_v1.delete_namespaced_job(
                 name=k8s_job_name(job_id=job_id),
                 namespace=self.namespace,
+                propagation_policy='Foreground',
             )
         except kubernetes.client.rest.ApiException as e:
             if e.status == HTTPStatus.NOT_FOUND:

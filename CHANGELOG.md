@@ -1,3 +1,6 @@
+## 0.0.49
+* Set propagation policy when deleting kubernetes jobs
+
 ## 0.0.47, 0.0.48
 * Fix build issues
 
