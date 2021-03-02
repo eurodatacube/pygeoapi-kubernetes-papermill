@@ -1,3 +1,6 @@
+## 0.0.50
+* Handle kubernetes interface empty lists being null
+
 ## 0.0.49
 * Set propagation policy when deleting kubernetes jobs
 
