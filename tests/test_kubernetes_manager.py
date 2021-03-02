@@ -32,8 +32,11 @@ import pytest
 from unittest import mock
 from kubernetes import client as k8s_client
 
-from pygeoapi_kubernetes_papermill import KubernetesManager
-from pygeoapi_kubernetes_papermill import PapermillNotebookKubernetesProcessor
+from pygeoapi_kubernetes_papermill import (
+    KubernetesManager,
+    PapermillNotebookKubernetesProcessor,
+)
+from pygeoapi_kubernetes_papermill.kubernetes import k8s_job_name
 
 
 @pytest.fixture()
@@ -44,20 +47,36 @@ def mock_k8s_base():
 
 
 @pytest.fixture()
-def mock_read_job():
+def k8s_job() -> k8s_client.V1Job:
+    return k8s_client.V1Job(
+        spec=k8s_client.V1JobSpec(
+            template="",
+            selector=k8s_client.V1LabelSelector(match_labels={}),
+        ),
+        metadata=k8s_client.V1ObjectMeta(
+            name=k8s_job_name("test"),
+            annotations={"pygeoapi.io/result-notebook": "/a/b/a.ipynb"},
+        ),
+        status=k8s_client.V1JobStatus(),
+    )
+
+
+@pytest.fixture()
+def mock_read_job(k8s_job):
     with mock.patch(
         "pygeoapi_kubernetes_papermill."
         "kubernetes.k8s_client.BatchV1Api.read_namespaced_job",
-        return_value=k8s_client.V1Job(
-            spec=k8s_client.V1JobSpec(
-                template="",
-                selector=k8s_client.V1LabelSelector(match_labels={}),
-            ),
-            metadata=k8s_client.V1ObjectMeta(
-                annotations={"pygeoapi.io/result-notebook": "/a/b/a.ipynb"}
-            ),
-            status=k8s_client.V1JobStatus(),
-        ),
+        return_value=k8s_job,
+    ):
+        yield
+
+
+@pytest.fixture()
+def mock_list_jobs(k8s_job):
+    with mock.patch(
+        "pygeoapi_kubernetes_papermill."
+        "kubernetes.k8s_client.BatchV1Api.list_namespaced_job",
+        return_value=k8s_client.V1JobList(items=[k8s_job]),
     ):
         yield
 
@@ -95,6 +114,24 @@ def mock_list_pods():
                                 ),
                             )
                         ],
+                    )
+                )
+            ]
+        ),
+    ):
+        yield
+
+
+@pytest.fixture()
+def mock_list_pods_no_container_status():
+    with mock.patch(
+        "pygeoapi_kubernetes_papermill."
+        "kubernetes.k8s_client.CoreV1Api.list_namespaced_pod",
+        return_value=k8s_client.V1PodList(
+            items=[
+                k8s_client.V1Pod(
+                    status=k8s_client.V1PodStatus(
+                        container_statuses=None,
                     )
                 )
             ]
@@ -166,3 +203,14 @@ def test_execute_process_starts_job(
     job: k8s_client.V1Job = mock_create_job.mock_calls[0][2]["body"]
     assert job_id in job.metadata.name
     assert job.metadata.annotations["pygeoapi.io/identifier"] == job_id
+
+
+def test_get_jobs_handles_container_status_null(
+    manager: KubernetesManager,
+    mock_list_jobs,
+    mock_list_pods_no_container_status,
+):
+    # NOTE: this test could be reduced to only test _job_message() if the excessive
+    #       mocking causes issues
+    jobs = manager.get_jobs()
+    assert [job["message"] for job in jobs] == [""]

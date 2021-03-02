@@ -80,6 +80,7 @@ JobDict = TypedDict(
         "status": str,
         "result-link": str,
         "result-notebook": str,
+        "message": str,
     },
     total=False,
 )
@@ -309,15 +310,18 @@ class KubernetesManager(BaseManager):
         )
         if pods.items:
             pod = pods.items[0]
-            state: k8s_client.V1ContainerState = pod.status.container_statuses[0].state
-            interesting_states = [s for s in (state.waiting, state.terminated) if s]
-            if interesting_states:
-                return ": ".join(
-                    filter(
-                        None,
-                        (interesting_states[0].reason, interesting_states[0].message),
+            # everything can be null in kubernetes, even empty lists
+            if pod.status.container_statuses:
+                state: k8s_client.V1ContainerState = \
+                    pod.status.container_statuses[0].state
+                interesting_states = [s for s in (state.waiting, state.terminated) if s]
+                if interesting_states:
+                    return ": ".join(
+                        filter(
+                            None,
+                            (interesting_states[0].reason, interesting_states[0].message),
+                        )
                     )
-                )
         return None
 
 
