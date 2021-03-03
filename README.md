@@ -67,6 +67,9 @@ execute-notebook:
       - claim_name: more-data
         mount_path: /home/jovyan/more-data
     jupyter_base_url: "https://example.com/jupyter"
+    secrets:
+      - name: "s3-access-credentials"
+      - name: "db"
 ```
 
 
@@ -97,4 +100,6 @@ Note that the user home must be the same in JupyterLab and the job container for
 
 Note that you can arbitrarily combine `s3`, `home_volume_claim_name` and `extra_pvcs`. This means that it's possible to e.g. only use `s3` to fetch notebooks and store results, or to use only other volume claims, or any combination of these.
 
+`secrets` (Optional):
+List of secrets which will be mounted as volume under `/secret/<secret-name>`.
 

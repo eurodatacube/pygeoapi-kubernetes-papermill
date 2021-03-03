@@ -133,7 +133,7 @@ S3_MOUNT_WAIT_CMD = (
     f" [ \"$(stat -c '%u %g' '{S3_MOUNT_PATH}')\" != '{S3_MOUNT_UID} {S3_MOUNT_GID}' ] "
     " && [ $((ATTEMPTS++)) -lt 1000 ] "
     "; do echo 'wait for s3 mount'; sleep 0.05 ; done &&"
-    " echo \"mount after $ATTEMPTS attempts\" && "
+    ' echo "mount after $ATTEMPTS attempts" && '
 )
 
 
@@ -197,6 +197,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         self.extra_pvcs: List = processor_def["extra_pvcs"]
         self.jupyer_base_url: str = processor_def["jupyter_base_url"]
         self.output_directory: Path = Path(processor_def["output_directory"])
+        self.secrets = processor_def["secrets"]
 
     def create_job_pod_spec(
         self,
@@ -331,6 +332,11 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                     secret_name=self.s3["secret_name"],
                     s3_url=self.s3["s3_url"],
                 )
+
+            yield from (
+                extra_secret_config(secret_name=secret["name"], num=num)
+                for num, secret in enumerate(self.secrets)
+            )
 
         return functools.reduce(operator.add, extra_configs(), ExtraConfig())
 
@@ -507,6 +513,24 @@ def extra_pvc_config(extra_pvc: Dict) -> ExtraConfig:
             k8s_client.V1VolumeMount(
                 mount_path=extra_pvc["mount_path"],
                 name=extra_name,
+            )
+        ],
+    )
+
+
+def extra_secret_config(secret_name: str, num: int) -> ExtraConfig:
+    volume_name = f"secret-{num}"
+    return ExtraConfig(
+        volumes=[
+            k8s_client.V1Volume(
+                secret=k8s_client.V1SecretVolumeSource(secret_name=secret_name),
+                name=volume_name,
+            )
+        ],
+        volume_mounts=[
+            k8s_client.V1VolumeMount(
+                mount_path=str(PurePath("/secret") / secret_name),
+                name=volume_name,
             )
         ],
     )

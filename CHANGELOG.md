@@ -1,3 +1,6 @@
+## 0.0.51
+* Allow for secrets for jobs
+
 ## 0.0.50
 * Handle kubernetes interface empty lists being null
 

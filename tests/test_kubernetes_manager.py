@@ -182,6 +182,7 @@ def papermill_processor() -> PapermillNotebookKubernetesProcessor:
             "image_pull_secret": "",
             "jupyter_base_url": "",
             "output_directory": "/home/jovyan/tmp",
+            "secrets": [],
         }
     )
 

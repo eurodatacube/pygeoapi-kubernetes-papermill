@@ -66,6 +66,7 @@ def _create_processor(def_override=None) -> PapermillNotebookKubernetesProcessor
             "image_pull_secret": "",
             "jupyter_base_url": "",
             "output_directory": OUTPUT_DIRECTORY,
+            "secrets": [],
             **(def_override if def_override else {}),
         }
     )
@@ -306,3 +307,18 @@ def test_notebook_output_resolves_files_from_scrap(generate_scrap_notebook, job_
     (CONTAINER_HOME / filename).unlink()
 
     assert output == ("image/tiff", tif_payload)
+
+
+def test_secrets_are_being_mounted(create_pod_kwargs):
+
+    processor = _create_processor({"secrets": [{"name": "secA"}, {"name": "secB"}]})
+    job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
+
+    assert "secA" in [
+        v_sec.secret_name
+        for vol in job_pod_spec.pod_spec.volumes
+        if (v_sec := vol.secret)
+    ]
+    assert "/secret/secA" in [
+        m.mount_path for m in job_pod_spec.pod_spec.containers[0].volume_mounts
+    ]
