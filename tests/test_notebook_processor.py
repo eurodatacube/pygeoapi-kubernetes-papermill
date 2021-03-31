@@ -34,7 +34,7 @@ from pathlib import Path
 from pygeoapi.process.base import ProcessorExecuteError
 import pytest
 import stat
-from typing import Dict
+from typing import Dict, Callable
 
 
 from pygeoapi_kubernetes_papermill.kubernetes import JobDict
@@ -90,6 +90,16 @@ def create_pod_kwargs() -> Dict:
     }
 
 
+@pytest.fixture()
+def create_pod_kwargs_with(create_pod_kwargs) -> Callable:
+    def create(data):
+        kwargs = copy.deepcopy(create_pod_kwargs)
+        kwargs["data"].update(data)
+        return kwargs
+
+    return create
+
+
 def test_workdir_is_notebook_dir(papermill_processor):
     relative_dir = "a/b"
     nb_path = f"{relative_dir}/a.ipynb"
@@ -103,22 +113,24 @@ def test_workdir_is_notebook_dir(papermill_processor):
     assert f'--cwd "{abs_dir}"' in str(job_pod_spec.pod_spec.containers[0].command)
 
 
-def test_json_params_are_b64_encoded(papermill_processor, create_pod_kwargs):
+def test_json_params_are_b64_encoded(papermill_processor, create_pod_kwargs_with):
     payload = {"a": 3}
-    create_pod_kwargs = copy.deepcopy(create_pod_kwargs)
-    create_pod_kwargs["data"]["parameters_json"] = payload
-    job_pod_spec = papermill_processor.create_job_pod_spec(**create_pod_kwargs)
+    job_pod_spec = papermill_processor.create_job_pod_spec(
+        **create_pod_kwargs_with({"parameters_json": payload})
+    )
 
     assert b64encode(json.dumps(payload).encode()).decode() in str(
         job_pod_spec.pod_spec.containers[0].command
     )
 
 
-def test_custom_output_file_overwrites_default(papermill_processor, create_pod_kwargs):
+def test_custom_output_file_overwrites_default(
+    papermill_processor, create_pod_kwargs_with
+):
     output_path = "foo/bar.ipynb"
-    create_pod_kwargs = copy.deepcopy(create_pod_kwargs)
-    create_pod_kwargs["data"]["output_filename"] = output_path
-    job_pod_spec = papermill_processor.create_job_pod_spec(**create_pod_kwargs)
+    job_pod_spec = papermill_processor.create_job_pod_spec(
+        **create_pod_kwargs_with({"output_filename": output_path})
+    )
 
     assert "bar.ipynb" in str(job_pod_spec.pod_spec.containers[0].command)
 
@@ -162,11 +174,15 @@ def test_no_s3_bucket_by_default(papermill_processor, create_pod_kwargs):
     assert "wait for s3" not in str(job_pod_spec.pod_spec.containers[0].command)
 
 
-def test_s3_bucket_present_when_requested(create_pod_kwargs):
-    processor = _create_processor(
+@pytest.fixture()
+def papermill_processor_s3():
+    return _create_processor(
         {"s3": {"bucket_name": "example", "secret_name": "example", "s3_url": ""}}
     )
-    job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
+
+
+def test_s3_bucket_present_when_requested(papermill_processor_s3, create_pod_kwargs):
+    job_pod_spec = papermill_processor_s3.create_job_pod_spec(**create_pod_kwargs)
     assert "s3mounter" in [c.name for c in job_pod_spec.pod_spec.containers]
     assert "/home/jovyan/s3" in [
         m.mount_path for m in job_pod_spec.pod_spec.containers[0].volume_mounts
@@ -195,12 +211,12 @@ def test_image_pull_secr_added_when_requested(create_pod_kwargs):
 
 
 def test_output_path_owned_by_job_runner_group_and_group_writable(
-    papermill_processor, create_pod_kwargs
+    papermill_processor, create_pod_kwargs_with
 ):
     output_filename = "foo.ipynb"
-    create_pod_kwargs = copy.deepcopy(create_pod_kwargs)
-    create_pod_kwargs["data"]["output_filename"] = output_filename
-    papermill_processor.create_job_pod_spec(**create_pod_kwargs)
+    papermill_processor.create_job_pod_spec(
+        **create_pod_kwargs_with({"output_filename": output_filename})
+    )
 
     output_notebook = Path(OUTPUT_DIRECTORY) / output_filename
     assert output_notebook.stat().st_gid == JOB_RUNNER_GROUP_ID
@@ -208,12 +224,11 @@ def test_output_path_owned_by_job_runner_group_and_group_writable(
     assert output_notebook.stat().st_mode & stat.S_IWGRP  # write group
 
 
-def test_custom_kernel_is_used_on_request(papermill_processor, create_pod_kwargs):
+def test_custom_kernel_is_used_on_request(papermill_processor, create_pod_kwargs_with):
     my_kernel = "my-kernel"
-
-    create_pod_kwargs = copy.deepcopy(create_pod_kwargs)
-    create_pod_kwargs["data"]["kernel"] = my_kernel
-    job_pod_spec = papermill_processor.create_job_pod_spec(**create_pod_kwargs)
+    job_pod_spec = papermill_processor.create_job_pod_spec(
+        **create_pod_kwargs_with({"kernel": my_kernel})
+    )
 
     assert f"-k {my_kernel}" in str(job_pod_spec.pod_spec.containers[0].command)
 
@@ -224,12 +239,13 @@ def test_no_kernel_specified_if_not_detected(papermill_processor, create_pod_kwa
     assert "-k " not in str(job_pod_spec.pod_spec.containers[0].command)
 
 
-def test_error_for_invalid_parameter_is_raised(papermill_processor, create_pod_kwargs):
-    create_pod_kwargs = copy.deepcopy(create_pod_kwargs)
-    create_pod_kwargs["data"]["not_a_valid_parameter"] = 3
-
+def test_error_for_invalid_parameter_is_raised(
+    papermill_processor, create_pod_kwargs_with
+):
     with pytest.raises(ProcessorExecuteError):
-        papermill_processor.create_job_pod_spec(**create_pod_kwargs)
+        papermill_processor.create_job_pod_spec(
+            **create_pod_kwargs_with({"not_a_valid_parameter": 3})
+        )
 
 
 @pytest.fixture
