@@ -86,7 +86,7 @@ def papermill_gpu_processor() -> PapermillNotebookKubernetesProcessor:
 def create_pod_kwargs() -> Dict:
     return {
         "data": {"notebook": "a", "parameters": ""},
-        "job_name": "",
+        "job_name": "my-job",
     }
 
 
@@ -188,6 +188,23 @@ def test_s3_bucket_present_when_requested(papermill_processor_s3, create_pod_kwa
         m.mount_path for m in job_pod_spec.pod_spec.containers[0].volume_mounts
     ]
     assert "wait for s3" in str(job_pod_spec.pod_spec.containers[0].command)
+
+
+def test_job_specific_s3_subdir_is_mounted(
+    papermill_processor_s3, create_pod_kwargs_with
+):
+    job_pod_spec = papermill_processor_s3.create_job_pod_spec(
+        **create_pod_kwargs_with(
+            {"result_data_directory": "foo-{job_name}"},
+        )
+    )
+
+    cmd = str(job_pod_spec.pod_spec.containers[0].command)
+    assert 'mkdir "/home/jovyan/s3/foo-my-job"' in cmd
+    assert (
+        'ln -sf --no-dereference "/home/jovyan/s3/foo-my-job" "/home/jovyan/result-data'
+        in cmd
+    )
 
 
 def test_extra_pvcs_are_added_on_request(create_pod_kwargs):
@@ -338,3 +355,9 @@ def test_secrets_are_being_mounted(create_pod_kwargs):
     assert "/secret/secA" in [
         m.mount_path for m in job_pod_spec.pod_spec.containers[0].volume_mounts
     ]
+
+
+@pytest.mark.skip
+def test_init_container_is_added(papermill_processor, create_pod_kwargs):
+    job_pod_spec = papermill_processor.create_job_pod_spec(**create_pod_kwargs)
+    assert job_pod_spec == 4

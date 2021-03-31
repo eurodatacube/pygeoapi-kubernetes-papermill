@@ -136,6 +136,9 @@ S3_MOUNT_WAIT_CMD = (
     ' echo "mount after $ATTEMPTS attempts" && '
 )
 
+# NOTE: this is not where we store result notebooks (job-output), but where the algorithms
+#       should store their result data
+RESULT_DATA_PATH = PurePath("/home/jovyan/result-data")
 
 # this just needs to be any unique id
 JOB_RUNNER_GROUP_ID = 20200
@@ -165,6 +168,7 @@ class RequestParameters(TypedJsonMixin):
     mem_limit: Optional[str] = None
     cpu_requests: Optional[str] = None
     mem_requests: Optional[str] = None
+    result_data_directory: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data) -> "RequestParameters":
@@ -180,6 +184,7 @@ class RequestParameters(TypedJsonMixin):
         )
         data["output_filename"] = PurePath(output_filename_str).name
         data["notebook"] = PurePath(data["notebook"])
+        data["result_data_directory"] = data.get("result_data_directory")
 
         # don't use TypedJsonMixin.from_dict, return type is wrong
         return cls(**data)
@@ -249,7 +254,13 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 #       setup
                 "-i",
                 "-c",
-                (S3_MOUNT_WAIT_CMD if self.s3 else "") +
+                (S3_MOUNT_WAIT_CMD if self.s3 else "")
+                + (
+                    s3_subdir_cmd(requested.result_data_directory, job_name)
+                    if requested.result_data_directory
+                    else ""
+                )
+                +
                 # TODO: weird bug: removing this ls results in a PermissionError when
                 #       papermill later writes to the file. This only happens sometimes,
                 #       but when it occurs, it does so consistently. I'm leaving that in
@@ -618,6 +629,18 @@ def s3_config(bucket_name, secret_name, s3_url) -> ExtraConfig:
                 ],
             )
         ],
+    )
+
+
+def s3_subdir_cmd(subdir: str, job_name: str):
+    subdir_expanded = subdir.format(job_name=job_name)
+    # make sure this is only a path, not something really malicious
+    subdir_validated = PurePath(subdir_expanded).name
+    path_to_subdir = S3_MOUNT_PATH / subdir_validated
+    return (
+        f'mkdir "{path_to_subdir}" &&  '
+        f'ln -sf --no-dereference "{path_to_subdir}" "{RESULT_DATA_PATH}" && '
+        # NOTE: no-dereference is useful if home is a persisted mounted volume
     )
 
 

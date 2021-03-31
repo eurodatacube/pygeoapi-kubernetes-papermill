@@ -1,3 +1,6 @@
+## [Unreleased]
+* Implement `result_data_directory` parameter for jobs (this mounts a subdir of s3 in `/home/jovyan/result-data`)
+
 ## 0.0.51
 * Allow for secrets for jobs
 
