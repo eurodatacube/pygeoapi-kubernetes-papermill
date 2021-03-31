@@ -256,7 +256,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 #       for now since that command doesn't do any harm.
                 #       (it will be a problem if there are ever a lot of output files,
                 #       especially on s3fs)
-                f"ls -la {self.output_directory} && "
+                f"ls -la {self.output_directory} >/dev/null && "
                 f"papermill "
                 f'"{requested.notebook}" '
                 f'"{output_notebook}" '
