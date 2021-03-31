@@ -136,6 +136,9 @@ S3_MOUNT_WAIT_CMD = (
     ' echo "mount after $ATTEMPTS attempts" && '
 )
 
+# NOTE: git checkout container needs a dir for volume and a nested dir for checkout
+GIT_CHECKOUT_PATH = CONTAINER_HOME / "git" / "algorithm"
+
 # NOTE: this is not where we store result notebooks (job-output), but where the algorithms
 #       should store their result data
 RESULT_DATA_PATH = PurePath("/home/jovyan/result-data")
@@ -146,12 +149,14 @@ JOB_RUNNER_GROUP_ID = 20200
 
 @dataclass(frozen=True)
 class ExtraConfig:
+    init_containers: List[k8s_client.V1Container] = field(default_factory=list)
     containers: List[k8s_client.V1Container] = field(default_factory=list)
     volume_mounts: List[k8s_client.V1VolumeMount] = field(default_factory=list)
     volumes: List[k8s_client.V1Volume] = field(default_factory=list)
 
     def __add__(self, other):
         return ExtraConfig(
+            init_containers=self.init_containers + other.init_containers,
             containers=self.containers + other.containers,
             volume_mounts=self.volume_mounts + other.volume_mounts,
             volumes=self.volumes + other.volumes,
@@ -203,6 +208,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         self.jupyer_base_url: str = processor_def["jupyter_base_url"]
         self.output_directory: Path = Path(processor_def["output_directory"])
         self.secrets = processor_def["secrets"]
+        self.checkout_git_repo: Optional[Dict] = processor_def.get("checkout_git_repo")
 
     def create_job_pod_spec(
         self,
@@ -314,6 +320,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 restart_policy="Never",
                 # NOTE: first container is used for status check
                 containers=[notebook_container] + extra_config.containers,
+                init_containers=extra_config.init_containers,
                 volumes=extra_config.volumes,
                 # we need this to be able to terminate the sidecar container
                 # https://github.com/kubernetes/kubernetes/issues/25908
@@ -348,6 +355,9 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 extra_secret_config(secret_name=secret["name"], num=num)
                 for num, secret in enumerate(self.secrets)
             )
+
+            if self.checkout_git_repo:
+                yield git_checkout_config(**self.checkout_git_repo)
 
         return functools.reduce(operator.add, extra_configs(), ExtraConfig())
 
@@ -542,6 +552,70 @@ def extra_secret_config(secret_name: str, num: int) -> ExtraConfig:
             k8s_client.V1VolumeMount(
                 mount_path=str(PurePath("/secret") / secret_name),
                 name=volume_name,
+            )
+        ],
+    )
+
+
+def git_checkout_config(url: str, secret_name: str) -> ExtraConfig:
+    git_sync_mount_name = "git-sync-mount"
+
+    init_container = k8s_client.V1Container(
+        name="git-sync",
+        image="k8s.gcr.io/git-sync:v3.1.6",
+        volume_mounts=[
+            k8s_client.V1VolumeMount(
+                name=git_sync_mount_name,
+                mount_path="/tmp/git",  # as per container default
+
+            ),
+        ],
+        env=[
+            k8s_client.V1EnvVar(
+                name="GIT_SYNC_REPO",
+                value=url,
+            ),
+            k8s_client.V1EnvVar(
+                name="GIT_SYNC_DEST",
+                value=GIT_CHECKOUT_PATH.name
+            ),
+            k8s_client.V1EnvVar(
+                name="GIT_SYNC_ONE_TIME",
+                value="true",
+            ),
+            k8s_client.V1EnvVar(
+                name="GIT_SYNC_USERNAME",
+                value_from=k8s_client.V1EnvVarSource(
+                    secret_key_ref=k8s_client.V1SecretKeySelector(
+                        name=secret_name,
+                        key="username",
+                    ),
+                ),
+            ),
+            k8s_client.V1EnvVar(
+                name="GIT_SYNC_PASSWORD",
+                value_from=k8s_client.V1EnvVarSource(
+                    secret_key_ref=k8s_client.V1SecretKeySelector(
+                        name=secret_name,
+                        key="password",
+                    ),
+                ),
+            ),
+        ],
+    )
+
+    return ExtraConfig(
+        init_containers=[init_container],
+        volume_mounts=[
+            k8s_client.V1VolumeMount(
+                mount_path=str(GIT_CHECKOUT_PATH.parent),
+                name=git_sync_mount_name,
+            )
+        ],
+        volumes=[
+            k8s_client.V1Volume(
+                name=git_sync_mount_name,
+                empty_dir=k8s_client.V1EmptyDirVolumeSource(),
             )
         ],
     )

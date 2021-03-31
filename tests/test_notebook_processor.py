@@ -357,7 +357,17 @@ def test_secrets_are_being_mounted(create_pod_kwargs):
     ]
 
 
-@pytest.mark.skip
-def test_init_container_is_added(papermill_processor, create_pod_kwargs):
-    job_pod_spec = papermill_processor.create_job_pod_spec(**create_pod_kwargs)
-    assert job_pod_spec == 4
+def test_git_checkout_init_container_is_added(create_pod_kwargs):
+    checkout_conf = {
+        "checkout_git_repo": {
+            "url": "https://gitlab.example.at/example.git",
+            "secret_name": "pygeoapi-git-secret",
+        }
+    }
+    processor = _create_processor(checkout_conf)
+
+    job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
+    assert "git-sync" in [c.name for c in job_pod_spec.pod_spec.init_containers]
+    assert "/home/jovyan/git" in [
+        m.mount_path for m in job_pod_spec.pod_spec.containers[0].volume_mounts
+    ]
