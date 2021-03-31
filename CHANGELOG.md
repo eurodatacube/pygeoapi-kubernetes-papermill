@@ -1,5 +1,6 @@
-## [Unreleased]
+## 0.0.52
 * Implement `result_data_directory` parameter for jobs (this mounts a subdir of s3 in `/home/jovyan/result-data`)
+* Add option for git checkout as init container
 
 ## 0.0.51
 * Allow for secrets for jobs
