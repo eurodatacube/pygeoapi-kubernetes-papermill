@@ -70,6 +70,9 @@ execute-notebook:
     secrets:
       - name: "s3-access-credentials"
       - name: "db"
+    checkout_git_repo:
+      url: https://gitlab.example.com/repo.git
+      secret_name: pygeoapi-git-secret
 ```
 
 
@@ -102,4 +105,7 @@ Note that you can arbitrarily combine `s3`, `home_volume_claim_name` and `extra_
 
 `secrets` (Optional):
 List of secrets which will be mounted as volume under `/secret/<secret-name>`.
+
+`checkout_git_repo` (Optional):
+Clone a git repo to /home/jovyan/git/algorithm before the job starts. Useful to execute the latest version of notebooks or code of that repository. `secret_name` must contain `username` and `password` for git https checkout.
 
