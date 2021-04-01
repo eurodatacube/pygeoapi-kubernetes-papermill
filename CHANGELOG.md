@@ -1,3 +1,6 @@
+## 0.0.54
+* Implement resources endpoint for jobs
+
 ## 0.0.53
 * Update to latest pygeoapi api (mime type for sync jobs)
 

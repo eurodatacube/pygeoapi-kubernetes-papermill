@@ -1,9 +1,10 @@
 kubernetes
 scrapbook
 typed_json_dataclass==1.2.1
+requests==2.25.1
 
 pytest
 pytest-watch
 flake8
-mypy==0.790
+mypy
 black

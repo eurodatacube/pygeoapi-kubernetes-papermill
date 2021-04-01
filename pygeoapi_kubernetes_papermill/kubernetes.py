@@ -81,6 +81,7 @@ JobDict = TypedDict(
         "result-link": str,
         "result-notebook": str,
         "message": str,
+        "job_end_datetime": Optional[str],
     },
     total=False,
 )
@@ -92,15 +93,20 @@ class KubernetesManager(BaseManager):
 
         self.is_async = True
 
-        try:
-            k8s_config.load_kube_config()
-        except Exception:
-            # load_kube_config might throw anything :/
-            k8s_config.load_incluster_config()
+        if manager_def.get("skip_k8s_setup"):
+            # this is virtually only useful for tests
+            self.namespace = "test"
+        else:
+            try:
+                k8s_config.load_kube_config()
+            except Exception:
+                # load_kube_config might throw anything :/
+                k8s_config.load_incluster_config()
+
+            self.namespace = current_namespace()
 
         self.batch_v1 = k8s_client.BatchV1Api()
         self.core_api = k8s_client.CoreV1Api()
-        self.namespace = current_namespace()
 
     def get_jobs(self, processid=None, status=None) -> List[JobDict]:
         """
@@ -210,7 +216,7 @@ class KubernetesManager(BaseManager):
             self.batch_v1.delete_namespaced_job(
                 name=k8s_job_name(job_id=job_id),
                 namespace=self.namespace,
-                propagation_policy='Foreground',
+                propagation_policy="Foreground",
             )
         except kubernetes.client.rest.ApiException as e:
             if e.status == HTTPStatus.NOT_FOUND:
@@ -234,7 +240,7 @@ class KubernetesManager(BaseManager):
         """
         self._execute_handler_async(p=p, job_id=job_id, data_dict=data_dict)
 
-        process_id = p.metadata['id']
+        process_id = p.metadata["id"]
 
         while True:
             # TODO: investigate if list_namespaced_job(watch=True) can be used here
@@ -311,14 +317,18 @@ class KubernetesManager(BaseManager):
             pod = pods.items[0]
             # everything can be null in kubernetes, even empty lists
             if pod.status.container_statuses:
-                state: k8s_client.V1ContainerState = \
-                    pod.status.container_statuses[0].state
+                state: k8s_client.V1ContainerState = pod.status.container_statuses[
+                    0
+                ].state
                 interesting_states = [s for s in (state.waiting, state.terminated) if s]
                 if interesting_states:
                     return ": ".join(
                         filter(
                             None,
-                            (interesting_states[0].reason, interesting_states[0].message),
+                            (
+                                interesting_states[0].reason,
+                                interesting_states[0].message,
+                            ),
                         )
                     )
         return None

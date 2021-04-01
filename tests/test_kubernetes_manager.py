@@ -36,7 +36,6 @@ from pygeoapi_kubernetes_papermill import (
     KubernetesManager,
     PapermillNotebookKubernetesProcessor,
 )
-from pygeoapi_kubernetes_papermill.kubernetes import k8s_job_name
 
 
 @pytest.fixture()
@@ -44,34 +43,6 @@ def mock_k8s_base():
     with mock.patch("pygeoapi_kubernetes_papermill.kubernetes.k8s_config"):
         with mock.patch("pygeoapi_kubernetes_papermill.kubernetes.current_namespace"):
             yield
-
-
-@pytest.fixture()
-def k8s_job() -> k8s_client.V1Job:
-    return k8s_client.V1Job(
-        spec=k8s_client.V1JobSpec(
-            template="",
-            selector=k8s_client.V1LabelSelector(match_labels={}),
-        ),
-        metadata=k8s_client.V1ObjectMeta(
-            name=k8s_job_name("test"),
-            annotations={
-                "pygeoapi.io/result-notebook": "/a/b/a.ipynb",
-                "pygeoapi.io/result-link": "https://www.example.com",
-            },
-        ),
-        status=k8s_client.V1JobStatus(succeeded=1),
-    )
-
-
-@pytest.fixture()
-def mock_read_job(k8s_job):
-    with mock.patch(
-        "pygeoapi_kubernetes_papermill."
-        "kubernetes.k8s_client.BatchV1Api.read_namespaced_job",
-        return_value=k8s_job,
-    ):
-        yield
 
 
 @pytest.fixture()
@@ -92,37 +63,6 @@ def mock_create_job():
         return_value=None,
     ) as mocker:
         yield mocker
-
-
-@pytest.fixture()
-def mock_list_pods():
-    with mock.patch(
-        "pygeoapi_kubernetes_papermill."
-        "kubernetes.k8s_client.CoreV1Api.list_namespaced_pod",
-        return_value=k8s_client.V1PodList(
-            items=[
-                k8s_client.V1Pod(
-                    status=k8s_client.V1PodStatus(
-                        container_statuses=[
-                            k8s_client.V1ContainerStatus(
-                                image="a",
-                                image_id="b",
-                                name="c",
-                                ready=True,
-                                restart_count=0,
-                                state=k8s_client.V1ContainerState(
-                                    terminated=k8s_client.V1ContainerStateTerminated(
-                                        exit_code=0
-                                    )
-                                ),
-                            )
-                        ],
-                    )
-                )
-            ]
-        ),
-    ):
-        yield
 
 
 @pytest.fixture()
@@ -246,5 +186,5 @@ def test_execute_process_sync_also_returns_mime_type(
     )
 
     assert mime is None
-    assert payload == {'result-link': 'https://www.example.com'}
+    assert payload == {"result-link": "https://www.example.com"}
     assert status == JobStatus.successful

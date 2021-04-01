@@ -567,7 +567,6 @@ def git_checkout_config(url: str, secret_name: str) -> ExtraConfig:
             k8s_client.V1VolumeMount(
                 name=git_sync_mount_name,
                 mount_path="/tmp/git",  # as per container default
-
             ),
         ],
         env=[
@@ -575,10 +574,7 @@ def git_checkout_config(url: str, secret_name: str) -> ExtraConfig:
                 name="GIT_SYNC_REPO",
                 value=url,
             ),
-            k8s_client.V1EnvVar(
-                name="GIT_SYNC_DEST",
-                value=GIT_CHECKOUT_PATH.name
-            ),
+            k8s_client.V1EnvVar(name="GIT_SYNC_DEST", value=GIT_CHECKOUT_PATH.name),
             k8s_client.V1EnvVar(
                 name="GIT_SYNC_ONE_TIME",
                 value="true",
