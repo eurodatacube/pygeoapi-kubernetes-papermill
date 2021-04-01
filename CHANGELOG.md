@@ -1,3 +1,6 @@
+## 0.0.53
+* Update to latest pygeoapi api (mime type for sync jobs)
+
 ## 0.0.52
 * Implement `result_data_directory` parameter for jobs (this mounts a subdir of s3 in `/home/jovyan/result-data`)
 * Add option for git checkout as init container

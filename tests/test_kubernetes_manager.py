@@ -55,9 +55,12 @@ def k8s_job() -> k8s_client.V1Job:
         ),
         metadata=k8s_client.V1ObjectMeta(
             name=k8s_job_name("test"),
-            annotations={"pygeoapi.io/result-notebook": "/a/b/a.ipynb"},
+            annotations={
+                "pygeoapi.io/result-notebook": "/a/b/a.ipynb",
+                "pygeoapi.io/result-link": "https://www.example.com",
+            },
         ),
-        status=k8s_client.V1JobStatus(),
+        status=k8s_client.V1JobStatus(succeeded=1),
     )
 
 
@@ -150,6 +153,15 @@ def mock_delete_job():
 
 
 @pytest.fixture()
+def mock_scrapbook_read_notebook():
+    with mock.patch(
+        "pygeoapi_kubernetes_papermill.notebook.scrapbook.read_notebook",
+        return_value=mock.MagicMock(scraps=[]),
+    ) as m:
+        yield m
+
+
+@pytest.fixture()
 def manager(mock_k8s_base) -> KubernetesManager:
     return KubernetesManager({"name": "kman"})
 
@@ -187,7 +199,7 @@ def papermill_processor() -> PapermillNotebookKubernetesProcessor:
     )
 
 
-def test_execute_process_starts_job(
+def test_execute_process_starts_async_job(
     manager: KubernetesManager,
     papermill_processor,
     mock_create_job,
@@ -199,7 +211,7 @@ def test_execute_process_starts_job(
         data_dict={"notebook": "a.ipynb"},
         is_async=True,
     )
-    assert result == (None, JobStatus.accepted)
+    assert result == (None, None, JobStatus.accepted)
 
     job: k8s_client.V1Job = mock_create_job.mock_calls[0][2]["body"]
     assert job_id in job.metadata.name
@@ -215,3 +227,24 @@ def test_get_jobs_handles_container_status_null(
     #       mocking causes issues
     jobs = manager.get_jobs()
     assert [job["message"] for job in jobs] == [""]
+
+
+def test_execute_process_sync_also_returns_mime_type(
+    manager: KubernetesManager,
+    papermill_processor,
+    mock_create_job,
+    mock_read_job,
+    mock_list_pods,
+    mock_scrapbook_read_notebook,
+):
+    job_id = "abc"
+    mime, payload, status = manager.execute_process(
+        p=papermill_processor,
+        job_id=job_id,
+        data_dict={"notebook": "a.ipynb"},
+        is_async=False,
+    )
+
+    assert mime is None
+    assert payload == {'result-link': 'https://www.example.com'}
+    assert status == JobStatus.successful

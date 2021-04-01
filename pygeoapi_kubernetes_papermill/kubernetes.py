@@ -222,7 +222,7 @@ class KubernetesManager(BaseManager):
 
     def _execute_handler_sync(
         self, p: BaseProcessor, job_id, data_dict: Dict
-    ) -> Tuple[Optional[Any], JobStatus]:
+    ) -> Tuple[Optional[str], Optional[Any], JobStatus]:
         """
         Synchronous execution handler
 
@@ -230,14 +230,16 @@ class KubernetesManager(BaseManager):
         :param job_id: job identifier
         :param data_dict: `dict` of data parameters
 
-        :returns: tuple of response payload and status
+        :returns: tuple of MIME type, response payload and status
         """
         self._execute_handler_async(p=p, job_id=job_id, data_dict=data_dict)
+
+        process_id = p.metadata['id']
 
         while True:
             # TODO: investigate if list_namespaced_job(watch=True) can be used here
             time.sleep(2)
-            job = self.get_job(process_id=p.metadata["id"], job_id=job_id)
+            job = self.get_job(process_id=process_id, job_id=job_id)
             if not job:
                 LOGGER.warning(f"Job {job_id} has vanished")
                 status = JobStatus.failed
@@ -247,16 +249,13 @@ class KubernetesManager(BaseManager):
             if status not in (JobStatus.running, JobStatus.accepted):
                 break
 
-        # TODO: no output in sync mode since we don't have proper content type
-        #       handling here yet
-        return (
-            "",
-            status,
-        )
+        mimetype, result = self.get_job_result(process_id=process_id, job_id=job_id)
+
+        return (mimetype, result, status)
 
     def _execute_handler_async(
         self, p: KubernetesProcessor, job_id, data_dict
-    ) -> Tuple[None, JobStatus]:
+    ) -> Tuple[None, None, JobStatus]:
         """
         In practise k8s jobs are always async.
 
@@ -299,7 +298,7 @@ class KubernetesManager(BaseManager):
 
         LOGGER.info("Add job %s in ns %s", job.metadata.name, self.namespace)
 
-        return (None, JobStatus.accepted)
+        return (None, None, JobStatus.accepted)
 
     def _job_message(self, job: k8s_client.V1Job) -> Optional[str]:
         label_selector = ",".join(
