@@ -371,3 +371,24 @@ def test_git_checkout_init_container_is_added(create_pod_kwargs):
     assert "/home/jovyan/git" in [
         m.mount_path for m in job_pod_spec.pod_spec.containers[0].volume_mounts
     ]
+
+
+def test_git_revision_can_be_set_via_request(create_pod_kwargs_with):
+    checkout_conf = {
+        "checkout_git_repo": {
+            "url": "https://gitlab.example.at/example.git",
+            "secret_name": "pygeoapi-git-secret",
+        }
+    }
+    processor = _create_processor(checkout_conf)
+
+    git_revision = "abc"
+    job_pod_spec = processor.create_job_pod_spec(
+        **create_pod_kwargs_with({"git_revision": git_revision})
+    )
+
+    assert any(
+        env.name == "GIT_SYNC_REV" and env.value == git_revision
+        for init_container in job_pod_spec.pod_spec.init_containers
+        for env in init_container.env
+    )

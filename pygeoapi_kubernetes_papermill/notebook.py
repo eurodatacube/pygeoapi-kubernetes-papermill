@@ -174,6 +174,7 @@ class RequestParameters(TypedJsonMixin):
     cpu_requests: Optional[str] = None
     mem_requests: Optional[str] = None
     result_data_directory: Optional[str] = None
+    git_revision: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data) -> "RequestParameters":
@@ -245,7 +246,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 k8s_client.V1LocalObjectReference(name=self.image_pull_secret)
             ]
 
-        extra_config = self._extra_configs()
+        extra_config = self._extra_configs(git_revision=requested.git_revision)
 
         notebook_container = k8s_client.V1Container(
             name="notebook",
@@ -334,7 +335,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             extra_annotations=extra_annotations,
         )
 
-    def _extra_configs(self) -> ExtraConfig:
+    def _extra_configs(self, git_revision: Optional[str]) -> ExtraConfig:
         def extra_configs() -> Iterable[ExtraConfig]:
             if self.home_volume_claim_name:
                 yield home_volume_config(self.home_volume_claim_name)
@@ -357,7 +358,10 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             )
 
             if self.checkout_git_repo:
-                yield git_checkout_config(**self.checkout_git_repo)
+                yield git_checkout_config(
+                    git_revision=git_revision,
+                    **self.checkout_git_repo,
+                )
 
         return functools.reduce(operator.add, extra_configs(), ExtraConfig())
 
@@ -557,7 +561,9 @@ def extra_secret_config(secret_name: str, num: int) -> ExtraConfig:
     )
 
 
-def git_checkout_config(url: str, secret_name: str) -> ExtraConfig:
+def git_checkout_config(
+    url: str, secret_name: str, git_revision: Optional[str]
+) -> ExtraConfig:
     git_sync_mount_name = "git-sync-mount"
 
     init_container = k8s_client.V1Container(
@@ -597,7 +603,12 @@ def git_checkout_config(url: str, secret_name: str) -> ExtraConfig:
                     ),
                 ),
             ),
-        ],
+        ]
+        + (
+            [k8s_client.V1EnvVar(name="GIT_SYNC_REV", value=git_revision)]
+            if git_revision
+            else []
+        ),
     )
 
     return ExtraConfig(
