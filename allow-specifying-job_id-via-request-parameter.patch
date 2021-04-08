@@ -1,0 +1,35 @@
+From c109cfea3600460bcc46edce73ceb2a56b5f0490 Mon Sep 17 00:00:00 2001
+From: Bernhard Mallinger <bernhard.mallinger@eox.at>
+Date: Thu, 8 Apr 2021 12:47:22 +0200
+Subject: [PATCH] Allow specifying `job_id` via request parameter
+
+This is somewhat unconventional with REST design and leaves it up to the
+process implementation to deal with duplicates and invalid IDs, however
+it can make sense in certain use cases.
+
+An alternative design would be to encode the desired `job_id` in the url:
+`POST /processes/<process_id>/jobs/<job_id>`
+This would suggest full control over the `job_id` from the client side,
+so I'd prefer to pass the id via POST data. This way we can treat it as
+suggestion, or possibly as a template from which the server derives the
+actual id.
+---
+ pygeoapi/api.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git pygeoapi/api.py pygeoapi/api.py
+index 84552b1..d384809 100644
+--- pygeoapi/api.py
++++ pygeoapi/api.py
+@@ -2000,7 +2000,7 @@ tiles/{{{}}}/{{{}}}/{{{}}}/{{{}}}?f=mvt'
+         else:
+             LOGGER.debug(data_dict)
+ 
+-        job_id = str(uuid.uuid1())
++        job_id = data.get("job_id", str(uuid.uuid1()))
+         url = '{}/processes/{}/jobs/{}'.format(
+             self.config['server']['url'], process_id, job_id)
+ 
+-- 
+2.25.1
+

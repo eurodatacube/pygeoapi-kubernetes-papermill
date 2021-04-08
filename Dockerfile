@@ -1,10 +1,11 @@
 FROM geopython/pygeoapi:latest
 
 # Add minor patch to set async as default behavior
-COPY async-as-default.patch .
+COPY async-as-default.patch allow-specifying-job_id-via-request-parameter.patch ./
 RUN apt update \
-  && apt install patch \
-  && patch -p0 < async-as-default.patch
+  && apt --no-install-recommends -y install patch vim-tiny \
+  && patch -p0 < async-as-default.patch \
+  && patch -p0 < allow-specifying-job_id-via-request-parameter.patch
 
 RUN mkdir /pkp
 WORKDIR /pkp
