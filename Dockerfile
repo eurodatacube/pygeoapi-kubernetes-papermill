@@ -1,3 +1,4 @@
+# TODO: remove patch for job_id after next image update, it's upstream now
 FROM geopython/pygeoapi:0.10.1
 
 # Add minor patch to set async as default behavior
