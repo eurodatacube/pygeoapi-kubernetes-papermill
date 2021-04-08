@@ -1,4 +1,4 @@
-FROM geopython/pygeoapi:latest
+FROM geopython/pygeoapi:0.10.1
 
 # Add minor patch to set async as default behavior
 COPY async-as-default.patch allow-specifying-job_id-via-request-parameter.patch ./
