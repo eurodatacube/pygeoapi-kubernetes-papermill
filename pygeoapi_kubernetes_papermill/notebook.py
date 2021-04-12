@@ -650,14 +650,20 @@ def s3_config(bucket_name, secret_name, s3_url) -> ExtraConfig:
                 image="totycro/s3fs:0.5.0-1.86",
                 # we need to detect the end of the job here, this container
                 # must end for the job to be considered done by k8s
-                # 'papermill' is the comm name of the process
+                # this is a missing feature in k8s:
+                # https://github.com/kubernetes/enhancements/issues/753
                 args=[
                     "sh",
                     "-c",
                     'echo "`date` waiting for job start"; '
+                    # first we wait 3 seconds because we might start before papermill
                     "sleep 3; "
                     'echo "`date` job start assumed"; '
-                    "while pgrep -x papermill > /dev/null; do sleep 1; done; "
+                    # we can't just check for papermill, because an `ls` happens before,
+                    # which in extreme cases can take seconds. so we check for bash,
+                    # because the s3fs container doesn't have that and we use that
+                    # in the other container. this is far from perfect.
+                    "while pgrep -x bash >/dev/null; do sleep 1; done; "
                     'echo "`date` job end detected"; ',
                 ],
                 security_context=k8s_client.V1SecurityContext(privileged=True),
