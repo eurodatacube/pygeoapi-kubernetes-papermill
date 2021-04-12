@@ -102,6 +102,14 @@ def mock_scrapbook_read_notebook():
 
 
 @pytest.fixture()
+def mock_wait_for_result_file():
+    with mock.patch(
+        "pygeoapi_kubernetes_papermill.notebook._wait_for_result_file",
+    ) as m:
+        yield m
+
+
+@pytest.fixture()
 def manager(mock_k8s_base) -> KubernetesManager:
     return KubernetesManager({"name": "kman"})
 
@@ -176,6 +184,7 @@ def test_execute_process_sync_also_returns_mime_type(
     mock_read_job,
     mock_list_pods,
     mock_scrapbook_read_notebook,
+    mock_wait_for_result_file,
 ):
     job_id = "abc"
     mime, payload, status = manager.execute_process(

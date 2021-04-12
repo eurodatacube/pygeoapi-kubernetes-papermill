@@ -38,6 +38,7 @@ import operator
 from pathlib import PurePath, Path
 import os
 import re
+import time
 from pygeoapi.process.base import ProcessorExecuteError
 import scrapbook
 import scrapbook.scraps
@@ -373,6 +374,8 @@ def notebook_job_output(result: JobDict) -> Tuple[Optional[str], Any]:
 
     # NOTE: this assumes that we have user home under the same path as jupyter
     notebook_path = Path(result["result-notebook"])
+
+    _wait_for_result_file(notebook_path)
     scraps = scrapbook.read_notebook(str(notebook_path)).scraps
 
     LOGGER.debug("Retrieved scraps from notebook: %s", scraps)
@@ -399,6 +402,23 @@ def notebook_job_output(result: JobDict) -> Tuple[Optional[str], Any]:
         # TODO: support serializing multiple scraps, possibly according to result schema:
         # https://github.com/opengeospatial/wps-rest-binding/blob/master/core/openapi/schemas/result.yaml
         return serialize_single_scrap(next(iter(scraps.values())))
+
+
+def _wait_for_result_file(notebook_path: Path) -> None:
+    # If the result file is queried immediately after the job has finished, it's likely
+    # that the s3fs mount has not yet received the changes that were written by the job.
+    # So instead of failing right away here, we detect the situation and wait.
+    for _ in range(20):
+        # NOTE: s3fs will only be refreshed on operations such as these. However
+        #       the refresh takes some time, which is ok here because we will catch it
+        #       in a subsequent loop run
+        notebook_path.open().close()
+        if notebook_path.stat().st_size != 0:
+            LOGGER.info("Result file present")
+            break
+        else:
+            LOGGER.info("Waiting for result file")
+            time.sleep(1)
 
 
 def serialize_single_scrap(scrap: scrapbook.scraps.Scrap) -> Tuple[Optional[str], Any]:
@@ -657,8 +677,7 @@ def s3_config(bucket_name, secret_name, s3_url) -> ExtraConfig:
                     "-c",
                     'echo "`date` waiting for job start"; '
                     # first we wait 3 seconds because we might start before papermill
-                    "sleep 3; "
-                    'echo "`date` job start assumed"; '
+                    'sleep 3; echo "`date` job start assumed"; '
                     # we can't just check for papermill, because an `ls` happens before,
                     # which in extreme cases can take seconds. so we check for bash,
                     # because the s3fs container doesn't have that and we use that
