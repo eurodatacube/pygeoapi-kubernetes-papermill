@@ -1,3 +1,9 @@
+## 0.0.58
+* Wait for result file if queried right after job finish
+* Make sidecar container termination more robust 
+* Add patch to allow overwriting job ids
+* Allow specifying git revisions in job request parameters
+
 ## 0.0.54
 * Implement resources endpoint for jobs
 
