@@ -342,9 +342,8 @@ def test_notebook_output_resolves_files_from_scrap(generate_scrap_notebook, job_
     assert output == ("image/tiff", tif_payload)
 
 
-def test_secrets_are_being_mounted(create_pod_kwargs):
-
-    processor = _create_processor({"secrets": [{"name": "secA"}, {"name": "secB"}]})
+def test_secrets_are_being_mounted_by_default(create_pod_kwargs):
+    processor = _create_processor({"secrets": [{"name": "secA"}]})
     job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
 
     assert "secA" in [
@@ -355,6 +354,12 @@ def test_secrets_are_being_mounted(create_pod_kwargs):
     assert "/secret/secA" in [
         m.mount_path for m in job_pod_spec.pod_spec.containers[0].volume_mounts
     ]
+
+
+def test_secrets_can_be_injected_via_env_vars(create_pod_kwargs):
+    processor = _create_processor({"secrets": [{"name": "secA", "access": "env"}]})
+    job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
+    assert "secA" == job_pod_spec.pod_spec.containers[0].env_from[0].secret_ref.name
 
 
 def test_git_checkout_init_container_is_added(create_pod_kwargs):

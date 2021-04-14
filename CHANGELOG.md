@@ -1,3 +1,6 @@
+## 0.0.60
+* Allow mounting secrets as env vars via `env_from`
+
 ## 0.0.58
 * Wait for result file if queried right after job finish
 * Make sidecar container termination more robust 

@@ -68,8 +68,11 @@ execute-notebook:
         mount_path: /home/jovyan/more-data
     jupyter_base_url: "https://example.com/jupyter"
     secrets:
-      - name: "s3-access-credentials"
+      - name: "s3-access-credentials"  # defaults to access via mount
       - name: "db"
+        access: "mount"
+      - name: "redis"
+        access: "env"
     checkout_git_repo:
       url: https://gitlab.example.com/repo.git
       secret_name: pygeoapi-git-secret
@@ -104,7 +107,7 @@ Note that the user home must be the same in JupyterLab and the job container for
 Note that you can arbitrarily combine `s3`, `home_volume_claim_name` and `extra_pvcs`. This means that it's possible to e.g. only use `s3` to fetch notebooks and store results, or to use only other volume claims, or any combination of these.
 
 `secrets` (Optional):
-List of secrets which will be mounted as volume under `/secret/<secret-name>`.
+List of secrets which will be mounted as volume under `/secret/<secret-name>` or made available as environment variable.
 
 `checkout_git_repo` (Optional):
 Clone a git repo to /home/jovyan/git/algorithm before the job starts. Useful to execute the latest version of notebooks or code of that repository. `secret_name` must contain `username` and `password` for git https checkout.

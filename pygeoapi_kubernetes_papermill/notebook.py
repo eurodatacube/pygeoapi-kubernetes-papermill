@@ -154,6 +154,7 @@ class ExtraConfig:
     containers: List[k8s_client.V1Container] = field(default_factory=list)
     volume_mounts: List[k8s_client.V1VolumeMount] = field(default_factory=list)
     volumes: List[k8s_client.V1Volume] = field(default_factory=list)
+    env_from: List[k8s_client.V1EnvFromSource] = field(default_factory=list)
 
     def __add__(self, other):
         return ExtraConfig(
@@ -161,6 +162,7 @@ class ExtraConfig:
             containers=self.containers + other.containers,
             volume_mounts=self.volume_mounts + other.volume_mounts,
             volumes=self.volumes + other.volumes,
+            env_from=self.env_from + other.env_from,
         )
 
 
@@ -296,6 +298,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                     name="PROGRESS_ANNOTATION", value=format_annotation_key("progress")
                 ),
             ],
+            env_from=extra_config.env_from,
         )
 
         # NOTE: this link currently doesn't work (even those created in
@@ -353,10 +356,13 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                     s3_url=self.s3["s3_url"],
                 )
 
-            yield from (
-                extra_secret_config(secret_name=secret["name"], num=num)
-                for num, secret in enumerate(self.secrets)
-            )
+            access_functions = {
+                "env": extra_secret_env_config,
+                "mount": extra_secret_mount_config,
+            }
+            for num, secret in enumerate(self.secrets):
+                access_fun = access_functions[secret.get("access", "mount")]
+                yield access_fun(secret_name=secret["name"], num=num)
 
             if self.checkout_git_repo:
                 yield git_checkout_config(
@@ -563,7 +569,7 @@ def extra_pvc_config(extra_pvc: Dict) -> ExtraConfig:
     )
 
 
-def extra_secret_config(secret_name: str, num: int) -> ExtraConfig:
+def extra_secret_mount_config(secret_name: str, num: int) -> ExtraConfig:
     volume_name = f"secret-{num}"
     return ExtraConfig(
         volumes=[
@@ -578,6 +584,16 @@ def extra_secret_config(secret_name: str, num: int) -> ExtraConfig:
                 name=volume_name,
             )
         ],
+    )
+
+
+def extra_secret_env_config(secret_name: str, num: int) -> ExtraConfig:
+    return ExtraConfig(
+        env_from=[
+            k8s_client.V1EnvFromSource(
+                secret_ref=k8s_client.V1SecretEnvSource(name=secret_name)
+            )
+        ]
     )
 
 
