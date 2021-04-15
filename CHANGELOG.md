@@ -1,3 +1,6 @@
+## 0.0.61
+* Generalize result data directories to arbitrary dirs, not just s3
+
 ## 0.0.60
 * Allow mounting secrets as env vars via `env_from`
 
