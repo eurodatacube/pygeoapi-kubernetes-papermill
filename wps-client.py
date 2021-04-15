@@ -92,6 +92,7 @@ def main(
             "Content-type": "application/json",
         },
         json={"inputs": inputs},
+        verify=False,
     )
     print(response)
     print(response.content.decode())

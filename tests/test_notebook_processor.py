@@ -195,7 +195,7 @@ def test_job_specific_s3_subdir_is_mounted(
 ):
     job_pod_spec = papermill_processor_s3.create_job_pod_spec(
         **create_pod_kwargs_with(
-            {"result_data_directory": "foo-{job_name}"},
+            {"result_data_directory": "s3/foo-{job_name}"},
         )
     )
 

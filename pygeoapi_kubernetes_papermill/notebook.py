@@ -266,7 +266,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 "-c",
                 (S3_MOUNT_WAIT_CMD if self.s3 else "")
                 + (
-                    s3_subdir_cmd(requested.result_data_directory, job_name)
+                    setup_results_dir_cmd(requested.result_data_directory, job_name)
                     if requested.result_data_directory
                     else ""
                 )
@@ -754,11 +754,13 @@ def s3_config(bucket_name, secret_name, s3_url) -> ExtraConfig:
     )
 
 
-def s3_subdir_cmd(subdir: str, job_name: str):
+def setup_results_dir_cmd(subdir: str, job_name: str):
+    """Create target directory and symlink to it under fixed path, such that jobs can
+    always write to fixed path"""
     subdir_expanded = subdir.format(job_name=job_name)
     # make sure this is only a path, not something really malicious
-    subdir_validated = PurePath(subdir_expanded).name
-    path_to_subdir = S3_MOUNT_PATH / subdir_validated
+    subdir_validated = PurePath(subdir_expanded)
+    path_to_subdir = CONTAINER_HOME / subdir_validated
     return (
         f'mkdir "{path_to_subdir}" &&  '
         f'ln -sf --no-dereference "{path_to_subdir}" "{RESULT_DATA_PATH}" && '
