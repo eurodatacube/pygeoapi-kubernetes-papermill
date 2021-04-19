@@ -1,3 +1,6 @@
+## 0.0.62
+* git checkout as jovyan user
+
 ## 0.0.61
 * Generalize result data directories to arbitrary dirs, not just s3
 

@@ -118,9 +118,9 @@ PROCESS_METADATA = {
 
 
 CONTAINER_HOME = Path("/home/jovyan")
+JOVIAN_UID = "1000"
+JOVIAN_GID = "100"
 S3_MOUNT_PATH = CONTAINER_HOME / "s3"
-S3_MOUNT_UID = "1000"
-S3_MOUNT_GID = "100"
 # we wait for the s3 mount (couldn't think of something better than this):
 # * first mount point is emptyDir owned by root.
 # * then it will be chowned to user by s3fs bash script, and finally also chowned
@@ -131,7 +131,7 @@ S3_MOUNT_GID = "100"
 S3_MOUNT_WAIT_CMD = (
     "ATTEMPTS=0; "
     "while "
-    f" [ \"$(stat -c '%u %g' '{S3_MOUNT_PATH}')\" != '{S3_MOUNT_UID} {S3_MOUNT_GID}' ] "
+    f" [ \"$(stat -c '%u %g' '{S3_MOUNT_PATH}')\" != '{JOVIAN_UID} {JOVIAN_GID}' ] "
     " && [ $((ATTEMPTS++)) -lt 1000 ] "
     "; do echo 'wait for s3 mount'; sleep 0.05 ; done &&"
     ' echo "mount after $ATTEMPTS attempts" && '
@@ -604,7 +604,7 @@ def git_checkout_config(
 
     init_container = k8s_client.V1Container(
         name="git-sync",
-        image="k8s.gcr.io/git-sync:v3.1.6",
+        image="k8s.gcr.io/git-sync/git-sync:v3.3.0",
         volume_mounts=[
             k8s_client.V1VolumeMount(
                 name=git_sync_mount_name,
@@ -644,6 +644,10 @@ def git_checkout_config(
             [k8s_client.V1EnvVar(name="GIT_SYNC_REV", value=git_revision)]
             if git_revision
             else []
+        ),
+        security_context=k8s_client.V1SecurityContext(
+            run_as_user=JOVIAN_UID,
+            run_as_group=JOVIAN_GID,
         ),
     )
 
@@ -718,8 +722,8 @@ def s3_config(bucket_name, secret_name, s3_url) -> ExtraConfig:
                 ),
                 env=[
                     k8s_client.V1EnvVar(name="S3FS_ARGS", value="-oallow_other"),
-                    k8s_client.V1EnvVar(name="UID", value=S3_MOUNT_UID),
-                    k8s_client.V1EnvVar(name="GID", value=S3_MOUNT_GID),
+                    k8s_client.V1EnvVar(name="UID", value=JOVIAN_UID),
+                    k8s_client.V1EnvVar(name="GID", value=JOVIAN_GID),
                     k8s_client.V1EnvVar(
                         name="AWS_S3_ACCESS_KEY_ID",
                         value_from=k8s_client.V1EnvVarSource(
