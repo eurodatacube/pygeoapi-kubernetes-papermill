@@ -646,8 +646,8 @@ def git_checkout_config(
             else []
         ),
         security_context=k8s_client.V1SecurityContext(
-            run_as_user=JOVIAN_UID,
-            run_as_group=JOVIAN_GID,
+            run_as_user=int(JOVIAN_UID),
+            run_as_group=int(JOVIAN_GID),
         ),
     )
 
