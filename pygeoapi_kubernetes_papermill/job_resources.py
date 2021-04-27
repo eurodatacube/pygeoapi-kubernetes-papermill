@@ -27,6 +27,7 @@
 #
 # =================================================================
 
+from kubernetes import client as k8s_client
 from pygeoapi.util import JobStatus
 from pygeoapi_kubernetes_papermill.kubernetes import JobDict, k8s_job_name
 import requests
@@ -44,10 +45,17 @@ def get_job_resources(process_id, job_id):
 
     from pygeoapi.flask_app import api_
 
+    # query prometheus for all pods of job (should be just 1)
+    pod_list: k8s_client.V1PodList = k8s_client.CoreV1Api().list_namespaced_pod(
+        namespace=api_.manager.namespace,
+        label_selector=f"job-name={k8s_job_name(job_id)}",
+    )
+    pod_selector = "|".join(pod.metadata.name for pod in pod_list.items)
+
     metrics_selector = ",".join(
         (
             f'namespace="{api_.manager.namespace}"',
-            f'pod=~"{k8s_job_name(job_id)}.*"',
+            f'pod=~"{pod_selector}"',
             'container="notebook"',
         )
     )

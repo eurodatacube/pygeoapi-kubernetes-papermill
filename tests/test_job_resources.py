@@ -83,7 +83,7 @@ def test_job_resources_returns_cpu_and_memory(
 
     prom_queries = [call[2]["params"] for call in mock_prometheus_call.mock_calls]
     assert len(prom_queries) == 2
-    assert all('pod=~"pygeoapi-job-123-abc.*"' in q["query"] for q in prom_queries)
+    assert all('pod=~"pod-of-job-123"' in q["query"] for q in prom_queries)
     assert all("2020-01-01T04:00:00.000000Z" == q["time"] for q in prom_queries)
 
     assert response.status_code == 200

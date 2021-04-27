@@ -76,6 +76,9 @@ def mock_list_pods():
         return_value=k8s_client.V1PodList(
             items=[
                 k8s_client.V1Pod(
+                    metadata=k8s_client.V1ObjectMeta(
+                        name="pod-of-job-123",
+                    ),
                     status=k8s_client.V1PodStatus(
                         container_statuses=[
                             k8s_client.V1ContainerStatus(
@@ -91,7 +94,7 @@ def mock_list_pods():
                                 ),
                             )
                         ],
-                    )
+                    ),
                 )
             ]
         ),
