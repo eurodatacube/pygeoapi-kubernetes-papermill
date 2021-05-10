@@ -79,7 +79,7 @@ def papermill_processor() -> PapermillNotebookKubernetesProcessor:
 
 @pytest.fixture()
 def papermill_gpu_processor() -> PapermillNotebookKubernetesProcessor:
-    return _create_processor({"default_image": "eurodatacube/jupyter-user-g:1.2.3"})
+    return _create_processor({"default_image": "jupyter-user-g:1.2.3"})
 
 
 @pytest.fixture()

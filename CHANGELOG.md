@@ -1,3 +1,9 @@
+## 0.0.65
+* Extend gpu image detection to support aws images
+
+## 0.0.64
+* Fix retrieving resource usage of jobs with long names
+
 ## 0.0.63
 * Hotfix
 

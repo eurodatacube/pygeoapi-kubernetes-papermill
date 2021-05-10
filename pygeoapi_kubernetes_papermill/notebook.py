@@ -225,11 +225,10 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         image = self.default_image
         image_name = image.split(":")[0]
 
-        default_kernel = {
-            "eurodatacube/jupyter-user": "edc",
-            "eurodatacube/jupyter-user-g": "edc-gpu",
-        }.get(image_name, "")
-        data.setdefault("kernel", default_kernel)
+        is_gpu = "jupyter-user-g" in image_name
+        is_edc = "jupyter-user" in image_name
+
+        data.setdefault("kernel", default_kernel(is_gpu=is_gpu, is_edc=is_edc))
 
         try:
             requested = RequestParameters.from_dict(data)
@@ -241,7 +240,6 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             output_notebook_filename=requested.output_filename,
         )
 
-        is_gpu = image_name == "eurodatacube/jupyter-user-g"
         extra_podspec = gpu_extra_podspec() if is_gpu else {}
 
         if self.image_pull_secret:
@@ -774,3 +772,12 @@ def setup_results_dir_cmd(subdir: str, job_name: str):
 
 def drop_none_values(d: Dict) -> Dict:
     return {k: v for k, v in d.items() if v is not None}
+
+
+def default_kernel(is_gpu: bool, is_edc: bool) -> str:
+    if is_gpu:
+        return "edc-gpu"
+    elif is_edc:
+        return "edc"
+    else:
+        return ""
