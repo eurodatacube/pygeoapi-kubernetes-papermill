@@ -1,3 +1,6 @@
+## 0.0.66
+* Add log_output config
+
 ## 0.0.65
 * Extend gpu image detection to support aws images
 

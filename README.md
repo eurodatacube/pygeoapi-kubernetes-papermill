@@ -76,6 +76,7 @@ execute-notebook:
     checkout_git_repo:
       url: https://gitlab.example.com/repo.git
       secret_name: pygeoapi-git-secret
+    log_output: false
 ```
 
 
@@ -112,3 +113,5 @@ List of secrets which will be mounted as volume under `/secret/<secret-name>` or
 `checkout_git_repo` (Optional):
 Clone a git repo to /home/jovyan/git/algorithm before the job starts. Useful to execute the latest version of notebooks or code of that repository. `secret_name` must contain `username` and `password` for git https checkout.
 
+`log_output`:
+Boolean, whether to enable `--log-output` in papermill.

@@ -67,6 +67,7 @@ def _create_processor(def_override=None) -> PapermillNotebookKubernetesProcessor
             "jupyter_base_url": "",
             "output_directory": OUTPUT_DIRECTORY,
             "secrets": [],
+            "log_output": False,
             **(def_override if def_override else {}),
         }
     )
@@ -397,3 +398,10 @@ def test_git_revision_can_be_set_via_request(create_pod_kwargs_with):
         for init_container in job_pod_spec.pod_spec.init_containers
         for env in init_container.env
     )
+
+
+def test_log_output_is_activated_on_demand(create_pod_kwargs):
+    processor = _create_processor({"log_output": True})
+    job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
+
+    assert "--log-output " in str(job_pod_spec.pod_spec.containers[0].command)

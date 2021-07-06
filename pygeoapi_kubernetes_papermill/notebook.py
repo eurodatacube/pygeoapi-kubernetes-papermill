@@ -213,6 +213,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         self.output_directory: Path = Path(processor_def["output_directory"])
         self.secrets = processor_def["secrets"]
         self.checkout_git_repo: Optional[Dict] = processor_def.get("checkout_git_repo")
+        self.log_output: bool = processor_def["log_output"]
 
     def create_job_pod_spec(
         self,
@@ -280,7 +281,9 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 f'"{requested.notebook}" '
                 f'"{output_notebook}" '
                 "--engine kubernetes_job_progress "
+                "--request-save-on-cell-execute "
                 f'--cwd "{working_dir(requested.notebook)}" '
+                + ("--log-output " if self.log_output else "")
                 + (f"-k {requested.kernel} " if requested.kernel else "")
                 + (f'-b "{requested.parameters}" ' if requested.parameters else ""),
             ],

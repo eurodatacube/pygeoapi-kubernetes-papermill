@@ -143,6 +143,7 @@ def papermill_processor() -> PapermillNotebookKubernetesProcessor:
             "jupyter_base_url": "",
             "output_directory": "/home/jovyan/tmp",
             "secrets": [],
+            "log_output": False,
         }
     )
 
