@@ -27,6 +27,8 @@
 #
 # =================================================================
 
+import logging
+
 from kubernetes import client as k8s_client
 from pygeoapi.util import JobStatus
 from pygeoapi_kubernetes_papermill.kubernetes import JobDict, k8s_job_name
@@ -36,12 +38,16 @@ import requests
 from pygeoapi.flask_app import BLUEPRINT, APP
 
 
+LOGGER = logging.getLogger(__name__)
+
 # TODO: set as config option
 QUERY_ENDPOINT = "http://prometheus.kubeprod.svc.cluster.local:9090/api/v1/query"
 
 
 @BLUEPRINT.route("/processes/<process_id>/jobs/<job_id>/resources")
 def get_job_resources(process_id, job_id):
+
+    LOGGER.debug(f"Retrieving job resources for {process_id} {job_id}")
 
     from pygeoapi.flask_app import api_
 
