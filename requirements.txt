@@ -8,3 +8,4 @@ pytest-watch
 flake8
 mypy
 black
+types-requests
