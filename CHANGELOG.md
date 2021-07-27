@@ -1,3 +1,6 @@
+## 0.0.67
+* Allow configuring node_purpose
+
 ## 0.0.66
 * Add log_output config
 

@@ -182,7 +182,7 @@ class RequestParameters(TypedJsonMixin):
     @classmethod
     def from_dict(cls, data) -> "RequestParameters":
         # translate from json to base64
-        if (parameters_json := data.pop("parameters_json", None)) :  # noqa
+        if parameters_json := data.pop("parameters_json", None):
             data["parameters"] = b64encode(
                 json.dumps(parameters_json).encode()
             ).decode()
@@ -214,6 +214,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         self.secrets = processor_def["secrets"]
         self.checkout_git_repo: Optional[Dict] = processor_def.get("checkout_git_repo")
         self.log_output: bool = processor_def["log_output"]
+        self.node_purpose: str = processor_def.get("node_purpose")
 
     def create_job_pod_spec(
         self,
@@ -241,7 +242,17 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             output_notebook_filename=requested.output_filename,
         )
 
-        extra_podspec = gpu_extra_podspec() if is_gpu else {}
+        extra_podspec = {}
+
+        if node_purpose := self.node_purpose or ("g2" if is_gpu else None):
+            extra_podspec["affinity"] = affinity(node_purpose=node_purpose)
+
+        if is_gpu:
+            extra_podspec["tolerations"] = [
+                k8s_client.V1Toleration(
+                    key="hub.eox.at/gpu", operator="Exists", effect="NoSchedule"
+                )
+            ]
 
         if self.image_pull_secret:
             extra_podspec["image_pull_secrets"] = [
@@ -389,7 +400,7 @@ def notebook_job_output(result: JobDict) -> Tuple[Optional[str], Any]:
 
     if not scraps:
         return (None, {"result-link": result["result-link"]})
-    elif (result_file_scrap := scraps.get("result-file")) :  # noqa
+    elif result_file_scrap := scraps.get("result-file"):
         # if available, prefer file output
         specified_path = Path(result_file_scrap.data)
         result_file_path = (
@@ -784,3 +795,24 @@ def default_kernel(is_gpu: bool, is_edc: bool) -> str:
         return "edc"
     else:
         return ""
+
+
+def affinity(node_purpose: str) -> k8s_client.V1Affinity:
+    node_selector = k8s_client.V1NodeSelector(
+        node_selector_terms=[
+            k8s_client.V1NodeSelectorTerm(
+                match_expressions=[
+                    k8s_client.V1NodeSelectorRequirement(
+                        key="hub.eox.at/node-purpose",
+                        operator="In",
+                        values=[node_purpose],
+                    ),
+                ]
+            )
+        ]
+    )
+    return k8s_client.V1Affinity(
+        node_affinity=k8s_client.V1NodeAffinity(
+            required_during_scheduling_ignored_during_execution=node_selector
+        )
+    )
