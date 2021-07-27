@@ -68,6 +68,7 @@ def _create_processor(def_override=None) -> PapermillNotebookKubernetesProcessor
             "output_directory": OUTPUT_DIRECTORY,
             "secrets": [],
             "log_output": False,
+            "job_service_account": "job-service-account",
             **(def_override if def_override else {}),
         }
     )

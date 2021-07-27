@@ -144,6 +144,7 @@ def papermill_processor() -> PapermillNotebookKubernetesProcessor:
             "output_directory": "/home/jovyan/tmp",
             "secrets": [],
             "log_output": False,
+            "job_service_account": "job-service-account",
         }
     )
 

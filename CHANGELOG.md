@@ -1,3 +1,6 @@
+## 0.0.69
+* Allow job service account to be configured
+
 ## 0.0.67
 * Allow configuring node_purpose
 

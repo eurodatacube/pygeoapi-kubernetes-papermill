@@ -215,6 +215,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         self.checkout_git_repo: Optional[Dict] = processor_def.get("checkout_git_repo")
         self.log_output: bool = processor_def["log_output"]
         self.node_purpose: str = processor_def.get("node_purpose")
+        self.job_service_account: str = processor_def["job_service_account"]
 
     def create_job_pod_spec(
         self,
@@ -342,7 +343,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 # we need this to be able to terminate the sidecar container
                 # https://github.com/kubernetes/kubernetes/issues/25908
                 share_process_namespace=True,
-                service_account="pygeoapi-eoxhub-job",
+                service_account=self.job_service_account,
                 security_context=k8s_client.V1PodSecurityContext(
                     supplemental_groups=[JOB_RUNNER_GROUP_ID]
                 ),
