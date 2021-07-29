@@ -56,6 +56,17 @@ def mock_list_jobs(k8s_job):
 
 
 @pytest.fixture()
+def mock_list_jobs_accepted(k8s_job: k8s_client.V1Job):
+    k8s_job.status = k8s_client.V1JobStatus()
+    with mock.patch(
+        "pygeoapi_kubernetes_papermill."
+        "kubernetes.k8s_client.BatchV1Api.list_namespaced_job",
+        return_value=k8s_client.V1JobList(items=[k8s_job]),
+    ):
+        yield
+
+
+@pytest.fixture()
 def mock_create_job():
     with mock.patch(
         "pygeoapi_kubernetes_papermill."
@@ -90,6 +101,25 @@ def mock_delete_job():
         "kubernetes.k8s_client.BatchV1Api.delete_namespaced_job",
     ) as m:
         yield m
+
+
+@pytest.fixture()
+def mock_list_events():
+    with mock.patch(
+        "pygeoapi_kubernetes_papermill."
+        "kubernetes.k8s_client.CoreV1Api.list_namespaced_event",
+        return_value=k8s_client.V1EventList(
+            items=[
+                k8s_client.V1Event(
+                    message="first event", involved_object=object(), metadata=object()
+                ),
+                k8s_client.V1Event(
+                    message="last event", involved_object=object(), metadata=object()
+                ),
+            ]
+        ),
+    ):
+        yield
 
 
 @pytest.fixture()
@@ -199,3 +229,13 @@ def test_execute_process_sync_also_returns_mime_type(
     assert mime is None
     assert payload == {"result-link": "https://www.example.com"}
     assert status == JobStatus.successful
+
+
+def test_accepted_jobs_show_events(
+    mock_list_jobs_accepted,
+    mock_list_events,
+    manager: KubernetesManager,
+):
+    jobs = manager.get_jobs()
+
+    assert jobs[0]["message"] == "last event"

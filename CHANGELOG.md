@@ -1,3 +1,6 @@
+## 0.0.70
+* Show more infos for accepted jobs (e.g. not runnig because resource requests too high)
+
 ## 0.0.69
 * Allow job service account to be configured
 

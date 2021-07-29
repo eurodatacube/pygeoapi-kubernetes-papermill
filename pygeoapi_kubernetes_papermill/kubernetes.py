@@ -307,6 +307,20 @@ class KubernetesManager(BaseManager):
         return (None, None, JobStatus.accepted)
 
     def _job_message(self, job: k8s_client.V1Job) -> Optional[str]:
+
+        if job_status_from_k8s(job.status) == JobStatus.accepted:
+            # if a job is in state accepted, it means that it can run right now
+            # and we the events can show why that is
+            events: k8s_client.V1EventList = self.core_api.list_namespaced_event(
+                namespace=self.namespace,
+                field_selector=(
+                    f"involvedObject.name={job.metadata.name},"
+                    "involvedObject.kind=Job"
+                ),
+            )
+            if items := events.items:
+                return items[-1].message
+
         label_selector = ",".join(
             f"{key}={value}" for key, value in job.spec.selector.match_labels.items()
         )
