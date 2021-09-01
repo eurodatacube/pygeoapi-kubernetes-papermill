@@ -1,3 +1,6 @@
+## 0.0.71
+* Implement run_on_fargate as request param and allow_fargate in config
+
 ## 0.0.70
 * Show more infos for accepted jobs (e.g. not runnig because resource requests too high)
 

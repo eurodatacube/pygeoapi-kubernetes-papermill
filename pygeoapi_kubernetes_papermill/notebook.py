@@ -178,6 +178,7 @@ class RequestParameters(TypedJsonMixin):
     mem_requests: Optional[str] = None
     result_data_directory: Optional[str] = None
     git_revision: Optional[str] = None
+    run_on_fargate: Optional[bool] = False
 
     @classmethod
     def from_dict(cls, data) -> "RequestParameters":
@@ -203,7 +204,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
     def __init__(self, processor_def):
         super().__init__(processor_def, PROCESS_METADATA)
 
-        # TODO: config file parsing (typed-json-dataclass?)
+        # TODO: config file parsing (typed-json-dataclass? pydantic!)
         self.default_image: str = processor_def["default_image"]
         self.image_pull_secret: str = processor_def["image_pull_secret"]
         self.s3: Optional[Dict[str, str]] = processor_def.get("s3")
@@ -216,6 +217,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         self.log_output: bool = processor_def["log_output"]
         self.node_purpose: str = processor_def.get("node_purpose")
         self.job_service_account: str = processor_def["job_service_account"]
+        self.allow_fargate: bool = processor_def["allow_fargate"]
 
     def create_job_pod_spec(
         self,
@@ -254,6 +256,13 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                     key="hub.eox.at/gpu", operator="Exists", effect="NoSchedule"
                 )
             ]
+
+        extra_labels = {}
+        if requested.run_on_fargate:
+            if not self.allow_fargate:
+                raise RuntimeError("run_on_fargate is not allowed on this pygeoapi")
+            else:
+                extra_labels["runtime"] = "fargate"
 
         if self.image_pull_secret:
             extra_podspec["image_pull_secrets"] = [
@@ -350,6 +359,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 **extra_podspec,
             ),
             extra_annotations=extra_annotations,
+            extra_labels=extra_labels,
         )
 
     def _extra_configs(self, git_revision: Optional[str]) -> ExtraConfig:

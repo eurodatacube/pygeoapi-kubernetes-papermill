@@ -56,6 +56,8 @@ def cleanup_job_directory():
 
 
 def _create_processor(def_override=None) -> PapermillNotebookKubernetesProcessor:
+    # TODO: this should be a fixture, then we can also use it for
+    #       kubernetes_manager, where it's currently duplicated
     return PapermillNotebookKubernetesProcessor(
         processor_def={
             "name": "test",
@@ -69,6 +71,7 @@ def _create_processor(def_override=None) -> PapermillNotebookKubernetesProcessor
             "secrets": [],
             "log_output": False,
             "job_service_account": "job-service-account",
+            "allow_fargate": False,
             **(def_override if def_override else {}),
         }
     )
@@ -422,3 +425,21 @@ def test_log_output_is_activated_on_demand(create_pod_kwargs):
     job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
 
     assert "--log-output " in str(job_pod_spec.pod_spec.containers[0].command)
+
+
+def test_run_on_fargate_not_allowed_if_disabled(
+    papermill_processor, create_pod_kwargs_with
+):
+    with pytest.raises(Exception):
+        papermill_processor.create_job_pod_spec(
+            **create_pod_kwargs_with({"run_on_fargate": True})
+        )
+
+
+def test_run_on_fargate_sets_label(create_pod_kwargs_with):
+    processor = _create_processor({"allow_fargate": True})
+    job_pod_spec = processor.create_job_pod_spec(
+        **create_pod_kwargs_with({"run_on_fargate": True})
+    )
+
+    assert job_pod_spec.extra_labels["runtime"] == "fargate"

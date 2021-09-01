@@ -54,6 +54,7 @@ class KubernetesProcessor(BaseProcessor):
     class JobPodSpec:
         pod_spec: k8s_client.V1PodSpec
         extra_annotations: Dict
+        extra_labels: Dict
 
     def create_job_pod_spec(
         self,
@@ -292,6 +293,7 @@ class KubernetesManager(BaseManager):
                 annotations={
                     format_annotation_key(k): v for k, v in annotations.items()
                 },
+                labels=job_pod_spec.extra_labels,
             ),
             spec=k8s_client.V1JobSpec(
                 template=k8s_client.V1PodTemplateSpec(spec=job_pod_spec.pod_spec),
