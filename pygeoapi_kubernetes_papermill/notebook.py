@@ -790,7 +790,7 @@ def setup_results_dir_cmd(subdir: str, job_name: str):
     subdir_validated = PurePath(subdir_expanded)
     path_to_subdir = CONTAINER_HOME / subdir_validated
     return (
-        f'mkdir "{path_to_subdir}" &&  '
+        f'if [ ! -d "{path_to_subdir}" ] ; then mkdir "{path_to_subdir}"; fi &&  '
         f'ln -sf --no-dereference "{path_to_subdir}" "{RESULT_DATA_PATH}" && '
         # NOTE: no-dereference is useful if home is a persisted mounted volume
     )
