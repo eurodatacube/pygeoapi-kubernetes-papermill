@@ -1,3 +1,6 @@
+## 0.0.72
+* Allow specifying sub_path for extra pvcs
+
 ## 0.0.71
 * Implement run_on_fargate as request param and allow_fargate in config
 

@@ -242,6 +242,26 @@ def test_extra_pvcs_are_added_on_request(create_pod_kwargs):
     ]
 
 
+def test_extra_pvcs_with_sub_path_are_added(create_pod_kwargs):
+    sub_path = "my_path/3"
+    processor = _create_processor(
+        {
+            "extra_pvcs": [
+                {
+                    "claim_name": "foo",
+                    "mount_path": "/mnt",
+                    "sub_path": sub_path,
+                }
+            ]
+        }
+    )
+    job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
+
+    assert sub_path in [
+        vm.sub_path for vm in job_pod_spec.pod_spec.containers[0].volume_mounts
+    ]
+
+
 def test_image_pull_secr_added_when_requested(create_pod_kwargs):
     processor = _create_processor({"image_pull_secret": "psrcr"})
     job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)

@@ -587,6 +587,7 @@ def extra_pvc_config(extra_pvc: Dict) -> ExtraConfig:
             k8s_client.V1VolumeMount(
                 mount_path=extra_pvc["mount_path"],
                 name=extra_name,
+                sub_path=extra_pvc.get("sub_path")
             )
         ],
     )
