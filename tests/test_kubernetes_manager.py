@@ -173,6 +173,8 @@ def papermill_processor() -> PapermillNotebookKubernetesProcessor:
             "jupyter_base_url": "",
             "output_directory": "/home/jovyan/tmp",
             "secrets": [],
+            "node_purpose": None,
+            "tolerations": [],
             "log_output": False,
             "job_service_account": "job-service-account",
             "allow_fargate": False,

@@ -215,7 +215,8 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         self.secrets = processor_def["secrets"]
         self.checkout_git_repo: Optional[Dict] = processor_def.get("checkout_git_repo")
         self.log_output: bool = processor_def["log_output"]
-        self.node_purpose: str = processor_def.get("node_purpose")
+        self.node_purpose: str = processor_def["node_purpose"]
+        self.tolerations: list = processor_def["tolerations"]
         self.job_service_account: str = processor_def["job_service_account"]
         self.allow_fargate: bool = processor_def["allow_fargate"]
 
@@ -245,17 +246,23 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             output_notebook_filename=requested.output_filename,
         )
 
-        extra_podspec = {}
+        extra_podspec: dict[str, Any] = {
+            "tolerations": [
+                k8s_client.V1Toleration(**toleration) for toleration in self.tolerations
+            ]
+            + (
+                [
+                    k8s_client.V1Toleration(
+                        key="hub.eox.at/gpu", operator="Exists", effect="NoSchedule"
+                    )
+                ]
+                if is_gpu
+                else []
+            )
+        }
 
         if node_purpose := self.node_purpose or ("g2" if is_gpu else None):
             extra_podspec["affinity"] = affinity(node_purpose=node_purpose)
-
-        if is_gpu:
-            extra_podspec["tolerations"] = [
-                k8s_client.V1Toleration(
-                    key="hub.eox.at/gpu", operator="Exists", effect="NoSchedule"
-                )
-            ]
 
         extra_labels = {}
         if requested.run_on_fargate:
@@ -587,7 +594,7 @@ def extra_pvc_config(extra_pvc: Dict) -> ExtraConfig:
             k8s_client.V1VolumeMount(
                 mount_path=extra_pvc["mount_path"],
                 name=extra_name,
-                sub_path=extra_pvc.get("sub_path")
+                sub_path=extra_pvc.get("sub_path"),
             )
         ],
     )

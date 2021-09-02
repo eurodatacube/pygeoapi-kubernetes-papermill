@@ -1,3 +1,6 @@
+## 0.0.73
+* Allow passing custom tolerations
+
 ## 0.0.72
 * Allow specifying sub_path for extra pvcs
 

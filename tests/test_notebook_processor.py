@@ -69,6 +69,8 @@ def _create_processor(def_override=None) -> PapermillNotebookKubernetesProcessor
             "jupyter_base_url": "",
             "output_directory": OUTPUT_DIRECTORY,
             "secrets": [],
+            "node_purpose": None,
+            "tolerations": [],
             "log_output": False,
             "job_service_account": "job-service-account",
             "allow_fargate": False,
@@ -158,7 +160,7 @@ def test_default_image_has_no_affinity(papermill_processor, create_pod_kwargs):
     job_pod_spec = papermill_processor.create_job_pod_spec(**create_pod_kwargs)
 
     assert job_pod_spec.pod_spec.affinity is None
-    assert job_pod_spec.pod_spec.tolerations is None
+    assert job_pod_spec.pod_spec.tolerations == []
 
 
 def test_gpu_image_has_affinity(papermill_gpu_processor, create_pod_kwargs):
@@ -463,3 +465,20 @@ def test_run_on_fargate_sets_label(create_pod_kwargs_with):
     )
 
     assert job_pod_spec.extra_labels["runtime"] == "fargate"
+
+
+def test_tolerations_are_added(create_pod_kwargs):
+    processor = _create_processor(
+        {
+            "tolerations": [
+                {
+                    "key": "hub.eox.at/processing",
+                    "operator": "Exists",
+                    "effect": "NoSchedule",
+                }
+            ]
+        }
+    )
+    job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
+
+    assert job_pod_spec.pod_spec.tolerations[0].key == "hub.eox.at/processing"
