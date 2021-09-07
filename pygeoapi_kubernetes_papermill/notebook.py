@@ -372,6 +372,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                     supplemental_groups=[JOB_RUNNER_GROUP_ID]
                 ),
                 **extra_podspec,
+                enable_service_links=False,
             ),
             extra_annotations=extra_annotations,
             extra_labels=extra_labels,

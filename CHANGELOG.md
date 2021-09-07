@@ -1,6 +1,7 @@
 ## 0.0.74
 * Add job id to default job output filename
 * Implement automatically mounting EDC secrets
+* Disable service links
 
 ## 0.0.73
 * Allow passing custom tolerations
