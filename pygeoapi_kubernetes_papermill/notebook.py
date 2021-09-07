@@ -170,7 +170,7 @@ class ExtraConfig:
 class RequestParameters(TypedJsonMixin):
     notebook: PurePath
     kernel: str
-    output_filename: str
+    output_filename: Optional[str] = None
     parameters: str = ""
     cpu_limit: Optional[str] = None
     mem_limit: Optional[str] = None
@@ -181,23 +181,20 @@ class RequestParameters(TypedJsonMixin):
     run_on_fargate: Optional[bool] = False
 
     @classmethod
-    def from_dict(cls, data) -> "RequestParameters":
+    def from_dict(cls, data: dict) -> "RequestParameters":
+
+        data_preprocessed: dict[str, Any] = {
+            **data,
+            "notebook": PurePath(data["notebook"]),
+        }
         # translate from json to base64
-        if parameters_json := data.pop("parameters_json", None):
-            data["parameters"] = b64encode(
+        if parameters_json := data_preprocessed.pop("parameters_json", None):
+            data_preprocessed["parameters"] = b64encode(
                 json.dumps(parameters_json).encode()
             ).decode()
 
-        output_filename_str = data.get(
-            "output_filename",
-            default_output_path(data["notebook"]),
-        )
-        data["output_filename"] = PurePath(output_filename_str).name
-        data["notebook"] = PurePath(data["notebook"])
-        data["result_data_directory"] = data.get("result_data_directory")
-
         # don't use TypedJsonMixin.from_dict, return type is wrong
-        return cls(**data)
+        return cls(**data_preprocessed)
 
 
 class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
@@ -241,9 +238,14 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         except (TypeError, KeyError) as e:
             raise ProcessorExecuteError(str(e)) from e
 
+        output_filename_validated = PurePath(
+            requested.output_filename
+            if requested.output_filename
+            else default_output_path(str(requested.notebook))
+        ).name
         output_notebook = setup_output_notebook(
             output_directory=self.output_directory,
-            output_notebook_filename=requested.output_filename,
+            output_notebook_filename=output_filename_validated,
         )
 
         extra_podspec: dict[str, Any] = {
