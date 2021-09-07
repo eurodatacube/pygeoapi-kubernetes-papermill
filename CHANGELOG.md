@@ -1,3 +1,6 @@
+## 0.0.75
+* Fixed label setting
+
 ## 0.0.74
 * Add job id to default job output filename
 * Implement automatically mounting EDC secrets

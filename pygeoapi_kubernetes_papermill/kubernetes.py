@@ -294,10 +294,12 @@ class KubernetesManager(BaseManager):
                 annotations={
                     format_annotation_key(k): v for k, v in annotations.items()
                 },
-                labels=job_pod_spec.extra_labels,
             ),
             spec=k8s_client.V1JobSpec(
-                template=k8s_client.V1PodTemplateSpec(spec=job_pod_spec.pod_spec),
+                template=k8s_client.V1PodTemplateSpec(
+                    metadata=k8s_client.V1ObjectMeta(labels=job_pod_spec.extra_labels),
+                    spec=job_pod_spec.pod_spec,
+                ),
                 backoff_limit=0,
                 ttl_seconds_after_finished=60 * 60 * 24 * 100,  # about 3 months
             ),
