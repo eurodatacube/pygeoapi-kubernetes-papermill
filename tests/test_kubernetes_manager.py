@@ -39,13 +39,6 @@ from pygeoapi_kubernetes_papermill import (
 
 
 @pytest.fixture()
-def mock_k8s_base():
-    with mock.patch("pygeoapi_kubernetes_papermill.kubernetes.k8s_config"):
-        with mock.patch("pygeoapi_kubernetes_papermill.kubernetes.current_namespace"):
-            yield
-
-
-@pytest.fixture()
 def mock_list_jobs(k8s_job):
     with mock.patch(
         "pygeoapi_kubernetes_papermill."
@@ -178,6 +171,7 @@ def papermill_processor() -> PapermillNotebookKubernetesProcessor:
             "log_output": False,
             "job_service_account": "job-service-account",
             "allow_fargate": False,
+            "auto_mount_secrets": False,
         }
     )
 

@@ -51,6 +51,7 @@ from kubernetes import client as k8s_client
 from .kubernetes import (
     JobDict,
     KubernetesProcessor,
+    current_namespace,
     format_annotation_key,
 )
 from .common import job_id_from_job_name
@@ -217,6 +218,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         self.tolerations: list = processor_def["tolerations"]
         self.job_service_account: str = processor_def["job_service_account"]
         self.allow_fargate: bool = processor_def["allow_fargate"]
+        self.auto_mount_secrets: bool = processor_def["auto_mount_secrets"]
 
     def create_job_pod_spec(
         self,
@@ -399,6 +401,9 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             for num, secret in enumerate(self.secrets):
                 access_fun = access_functions[secret.get("access", "mount")]
                 yield access_fun(secret_name=secret["name"], num=num)
+
+            if self.auto_mount_secrets:
+                yield extra_auto_secrets()
 
             if self.checkout_git_repo:
                 yield git_checkout_config(
@@ -630,6 +635,27 @@ def extra_secret_env_config(secret_name: str, num: int) -> ExtraConfig:
             k8s_client.V1EnvFromSource(
                 secret_ref=k8s_client.V1SecretEnvSource(name=secret_name)
             )
+        ]
+    )
+
+
+def extra_auto_secrets() -> ExtraConfig:
+    secrets: k8s_client.V1SecretList = k8s_client.CoreV1Api().list_namespaced_secret(
+        namespace=current_namespace()
+    )
+    # yield eurodatacube and edc-my-credentials secrets, just as jupyterlab
+    edc_regex = r"eurodatacube-.*default"
+    edc_my_credentials_label = ("owner", "edc-my-credentials")
+
+    return ExtraConfig(
+        env_from=[
+            k8s_client.V1EnvFromSource(
+                secret_ref=k8s_client.V1SecretEnvSource(name=secret.metadata.name)
+            )
+            for secret in secrets.items
+            if re.fullmatch(edc_regex, secret.metadata.name)
+            or (secret.metadata.labels or {}).get(edc_my_credentials_label[0])
+            == edc_my_credentials_label[1]
         ]
     )
 

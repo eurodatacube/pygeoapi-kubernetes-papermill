@@ -37,6 +37,16 @@ from unittest import mock
 
 
 @pytest.fixture()
+def mock_k8s_base():
+    with mock.patch("pygeoapi_kubernetes_papermill.kubernetes.k8s_config",), mock.patch(
+        "pygeoapi_kubernetes_papermill.kubernetes.current_namespace"
+    ), mock.patch(
+        "pygeoapi_kubernetes_papermill.notebook.current_namespace",
+    ):
+        yield
+
+
+@pytest.fixture()
 def k8s_job() -> k8s_client.V1Job:
     from pygeoapi_kubernetes_papermill.kubernetes import k8s_job_name
 

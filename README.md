@@ -73,10 +73,15 @@ execute-notebook:
         access: "mount"
       - name: "redis"
         access: "env"
+    auto_mount_secrets: False
     checkout_git_repo:
       url: https://gitlab.example.com/repo.git
       secret_name: pygeoapi-git-secret
     log_output: false
+    node_purpose: ""
+    tolerations: []
+    job_service_account: ""
+    allow_fargate: False
 ```
 
 

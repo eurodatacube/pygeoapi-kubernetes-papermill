@@ -31,10 +31,13 @@ from base64 import b64encode
 import copy
 import json
 from pathlib import Path
-from pygeoapi.process.base import ProcessorExecuteError
-import pytest
 import stat
 from typing import Dict, Callable
+from unittest import mock
+
+from kubernetes import client as k8s_client
+import pytest
+from pygeoapi.process.base import ProcessorExecuteError
 
 
 from pygeoapi_kubernetes_papermill.kubernetes import JobDict
@@ -74,6 +77,7 @@ def _create_processor(def_override=None) -> PapermillNotebookKubernetesProcessor
             "log_output": False,
             "job_service_account": "job-service-account",
             "allow_fargate": False,
+            "auto_mount_secrets": False,
             **(def_override if def_override else {}),
         }
     )
@@ -482,3 +486,42 @@ def test_tolerations_are_added(create_pod_kwargs):
     job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
 
     assert job_pod_spec.pod_spec.tolerations[0].key == "hub.eox.at/processing"
+
+
+@pytest.fixture()
+def mock_k8s_list_auto_secrets(mock_k8s_base):
+    with mock.patch(
+        "pygeoapi_kubernetes_papermill.notebook."
+        "k8s_client.CoreV1Api.list_namespaced_secret",
+        return_value=k8s_client.V1SecretList(
+            items=[
+                k8s_client.V1Secret(
+                    metadata=k8s_client.V1ObjectMeta(name="eurodatacube-default"),
+                ),
+                k8s_client.V1Secret(
+                    metadata=k8s_client.V1ObjectMeta(
+                        name="custom",
+                        labels={
+                            "owner": "edc-my-credentials",
+                        },
+                    )
+                ),
+                k8s_client.V1Secret(metadata=k8s_client.V1ObjectMeta(name="unrelated")),
+            ]
+        ),
+    ) as mocker:
+        yield mocker
+
+
+def test_secrets_can_be_mounted_automatically(
+    create_pod_kwargs, mock_k8s_list_auto_secrets
+):
+
+    processor = _create_processor({"auto_mount_secrets": True})
+    job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
+
+    # note that "unrelated" must not be present
+    assert [
+        env_from.secret_ref.name
+        for env_from in job_pod_spec.pod_spec.containers[0].env_from
+    ] == ["eurodatacube-default", "custom"]
