@@ -53,6 +53,7 @@ from .kubernetes import (
     KubernetesProcessor,
     format_annotation_key,
 )
+from .common import job_id_from_job_name
 
 LOGGER = logging.getLogger(__name__)
 
@@ -241,7 +242,10 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         output_filename_validated = PurePath(
             requested.output_filename
             if requested.output_filename
-            else default_output_path(str(requested.notebook))
+            else default_output_path(
+                str(requested.notebook),
+                job_id=job_id_from_job_name(job_name),
+            )
         ).name
         output_notebook = setup_output_notebook(
             output_directory=self.output_directory,
@@ -483,10 +487,10 @@ def serialize_single_scrap(scrap: scrapbook.scraps.Scrap) -> Tuple[Optional[str]
         return None, scrap.data
 
 
-def default_output_path(notebook_path: str) -> str:
+def default_output_path(notebook_path: str, job_id: str) -> str:
     filename_without_postfix = re.sub(".ipynb$", "", notebook_path)
     now_formatted = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-    return filename_without_postfix + f"_result_{now_formatted}.ipynb"
+    return filename_without_postfix + f"_result_{now_formatted}_{job_id}.ipynb"
 
 
 def setup_output_notebook(

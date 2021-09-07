@@ -45,6 +45,7 @@ from pygeoapi.util import JobStatus
 from pygeoapi.process.base import BaseProcessor
 from pygeoapi.process.manager.base import BaseManager, DATETIME_FORMAT
 
+from .common import is_k8s_job_name, k8s_job_name
 
 LOGGER = logging.getLogger(__name__)
 
@@ -360,17 +361,6 @@ def parse_annotation_key(key: str) -> Optional[str]:
 
 def format_annotation_key(key: str) -> str:
     return _ANNOTATIONS_PREFIX + key
-
-
-_JOB_NAME_PREFIX = "pygeoapi-job-"
-
-
-def k8s_job_name(job_id: str) -> str:
-    return f"{_JOB_NAME_PREFIX}{job_id}"
-
-
-def is_k8s_job_name(job_name: str) -> bool:
-    return job_name.startswith(_JOB_NAME_PREFIX)
 
 
 def job_status_from_k8s(status: k8s_client.V1JobStatus) -> JobStatus:
