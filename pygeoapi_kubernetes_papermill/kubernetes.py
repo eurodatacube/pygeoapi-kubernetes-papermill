@@ -124,7 +124,7 @@ class KubernetesManager(BaseManager):
         k8s_jobs: k8s_client.V1JobList = self.batch_v1.list_namespaced_job(
             namespace=self.namespace,
         )
-        # TODO: implement status filter
+        # TODO: implement process / status filter
 
         return [
             job_from_k8s(k8s_job, self._job_message(k8s_job))
@@ -141,6 +141,7 @@ class KubernetesManager(BaseManager):
 
         :returns: `dict`  # `pygeoapi.process.manager.Job`
         """
+
         try:
             k8s_job: k8s_client.V1Job = self.batch_v1.read_namespaced_job(
                 name=k8s_job_name(job_id=job_id),
@@ -209,24 +210,44 @@ class KubernetesManager(BaseManager):
         """
         LOGGER.debug(f"Deleting job {job_id}")
 
-        job = self.get_job(process_id=process_id, job_id=job_id)
-        LOGGER.debug(f"Deleting file {job['result-notebook']}")
-        # NOTE: this assumes that we have user home under the same path as jupyter
-        os.remove(job["result-notebook"])
+        job_name = k8s_job_name(job_id=job_id)
 
         try:
-            self.batch_v1.delete_namespaced_job(
-                name=k8s_job_name(job_id=job_id),
+            job: k8s_client.V1Job = self.batch_v1.read_namespaced_job(
+                name=job_name,
                 namespace=self.namespace,
-                propagation_policy="Foreground",
             )
         except kubernetes.client.rest.ApiException as e:
             if e.status == HTTPStatus.NOT_FOUND:
                 return False
             else:
                 raise
-        else:
-            return True
+
+        pod = self._pod_for_job(job)
+
+        LOGGER.info(f"Delete job {job_name}")
+        self.batch_v1.delete_namespaced_job(
+            name=job_name,
+            namespace=self.namespace,
+            # this policy should also remove pods, but doesn't
+            propagation_policy="Foreground",
+        )
+
+        job_dict = job_from_k8s(job, message=None)
+        LOGGER.debug(f"Deleting file {job_dict['result-notebook']}")
+        # NOTE: this assumes that we have user home under the same path as jupyter
+        os.remove(job_dict["result-notebook"])
+
+        # it should be possible for k8s to delete pods when deleting jobs,
+        # but it doesn't appear that it's working reliably, so reimplement it here.
+        # https://github.com/kubernetes/kubernetes/issues/20902
+        if pod:
+            LOGGER.info(f"Delete pod {pod.metadata.name}")
+            self.core_api.delete_namespaced_pod(
+                name=pod.metadata.name,
+                namespace=self.namespace,
+            )
+        return True
 
     def _execute_handler_sync(
         self, p: BaseProcessor, job_id, data_dict: Dict
@@ -326,14 +347,7 @@ class KubernetesManager(BaseManager):
             if items := events.items:
                 return items[-1].message
 
-        label_selector = ",".join(
-            f"{key}={value}" for key, value in job.spec.selector.match_labels.items()
-        )
-        pods: k8s_client.V1PodList = self.core_api.list_namespaced_pod(
-            namespace=self.namespace, label_selector=label_selector
-        )
-        if pods.items:
-            pod = pods.items[0]
+        if pod := self._pod_for_job(job):
             # everything can be null in kubernetes, even empty lists
             if pod.status.container_statuses:
                 state: k8s_client.V1ContainerState = pod.status.container_statuses[
@@ -351,6 +365,16 @@ class KubernetesManager(BaseManager):
                         )
                     )
         return None
+
+    def _pod_for_job(self, job: k8s_client.V1Job) -> Optional[k8s_client.V1Pod]:
+        label_selector = ",".join(
+            f"{key}={value}" for key, value in job.spec.selector.match_labels.items()
+        )
+        pods: k8s_client.V1PodList = self.core_api.list_namespaced_pod(
+            namespace=self.namespace, label_selector=label_selector
+        )
+
+        return next(iter(pods.items), None)
 
 
 _ANNOTATIONS_PREFIX = "pygeoapi.io/"

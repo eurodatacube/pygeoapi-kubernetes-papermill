@@ -88,6 +88,15 @@ def mock_list_pods_no_container_status():
 
 
 @pytest.fixture()
+def mock_delete_pod():
+    with mock.patch(
+        "pygeoapi_kubernetes_papermill."
+        "kubernetes.k8s_client.CoreV1Api.delete_namespaced_pod",
+    ) as m:
+        yield m
+
+
+@pytest.fixture()
 def mock_delete_job():
     with mock.patch(
         "pygeoapi_kubernetes_papermill."
@@ -142,6 +151,7 @@ def test_deleting_job_deletes_in_k8s_and_on_nb_file_on_disc(
     mock_read_job,
     mock_list_pods,
     mock_delete_job,
+    mock_delete_pod,
 ):
     with mock.patch(
         "pygeoapi_kubernetes_papermill.kubernetes.os.remove"
@@ -150,6 +160,7 @@ def test_deleting_job_deletes_in_k8s_and_on_nb_file_on_disc(
 
     assert result
     mock_delete_job.assert_called_once()
+    mock_delete_pod.assert_called_once()
     mock_os_remove.assert_called_once()
 
 
