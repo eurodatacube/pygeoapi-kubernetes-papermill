@@ -1,3 +1,6 @@
+## 0.0.76
+* Delete pods of jobs when deleting job
+
 ## 0.0.75
 * Fixed label setting
 
