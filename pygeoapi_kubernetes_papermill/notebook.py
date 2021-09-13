@@ -272,13 +272,6 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         if node_purpose := self.node_purpose or ("g2" if is_gpu else None):
             extra_podspec["affinity"] = affinity(node_purpose=node_purpose)
 
-        extra_labels = {}
-        if requested.run_on_fargate:
-            if not self.allow_fargate:
-                raise RuntimeError("run_on_fargate is not allowed on this pygeoapi")
-            else:
-                extra_labels["runtime"] = "fargate"
-
         if self.image_pull_secret:
             extra_podspec["image_pull_secrets"] = [
                 k8s_client.V1LocalObjectReference(name=self.image_pull_secret)
@@ -375,7 +368,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 enable_service_links=False,
             ),
             extra_annotations=extra_annotations,
-            extra_labels=extra_labels,
+            extra_labels=self._extra_labels(run_on_fargate=requested.run_on_fargate),
         )
 
     def _extra_configs(self, git_revision: Optional[str]) -> ExtraConfig:
@@ -413,6 +406,15 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 )
 
         return functools.reduce(operator.add, extra_configs(), ExtraConfig())
+
+    def _extra_labels(self, run_on_fargate: Optional[bool]):
+        if run_on_fargate:
+            if not self.allow_fargate:
+                raise RuntimeError("run_on_fargate is not allowed on this pygeoapi")
+            else:
+                return {"runtime": "fargate"}
+        else:
+            return {}
 
     def __repr__(self):
         return "<PapermillNotebookKubernetesProcessor> {}".format(self.name)
