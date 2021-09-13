@@ -1,3 +1,6 @@
+## 0.0.77
+* Allow specifying images for each execution
+
 ## 0.0.76
 * Delete pods of jobs when deleting job
 

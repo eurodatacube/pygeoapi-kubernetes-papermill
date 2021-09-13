@@ -171,6 +171,7 @@ def papermill_processor() -> PapermillNotebookKubernetesProcessor:
             "name": "test",
             "s3": None,
             "default_image": "example",
+            "allowed_images_regex": "",
             "extra_pvcs": [],
             "home_volume_claim_name": "user",
             "image_pull_secret": "",

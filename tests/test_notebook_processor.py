@@ -66,6 +66,7 @@ def _create_processor(def_override=None) -> PapermillNotebookKubernetesProcessor
             "name": "test",
             "s3": None,
             "default_image": "example",
+            "allowed_images_regex": "",
             "extra_pvcs": [],
             "home_volume_claim_name": "user",
             "image_pull_secret": "",
@@ -525,3 +526,19 @@ def test_secrets_can_be_mounted_automatically(
         env_from.secret_ref.name
         for env_from in job_pod_spec.pod_spec.containers[0].env_from
     ] == ["eurodatacube-default", "custom"]
+
+
+def test_allowed_custom_image_can_be_passed(create_pod_kwargs_with):
+    image = "eurouser:1.2"
+    processor = _create_processor({"allowed_images_regex": "euro.*:1\\..*"})
+    job_pod_spec = processor.create_job_pod_spec(
+        **create_pod_kwargs_with({"image": image})
+    )
+    assert job_pod_spec.pod_spec.containers[0].image == image
+
+
+def test_not_allowed_custom_image_is_rejected(create_pod_kwargs_with):
+    image = "euroevil:2.0"
+    processor = _create_processor({"allowed_images_regex": "euro.*:1\\.*"})
+    with pytest.raises(RuntimeError):
+        processor.create_job_pod_spec(**create_pod_kwargs_with({"image": image}))

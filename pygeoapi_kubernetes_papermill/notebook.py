@@ -171,7 +171,8 @@ class ExtraConfig:
 @dataclass(frozen=True)
 class RequestParameters(TypedJsonMixin):
     notebook: PurePath
-    kernel: str
+    kernel: Optional[str] = None
+    image: Optional[str] = None
     output_filename: Optional[str] = None
     parameters: str = ""
     cpu_limit: Optional[str] = None
@@ -205,6 +206,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
 
         # TODO: config file parsing (typed-json-dataclass? pydantic!)
         self.default_image: str = processor_def["default_image"]
+        self.allowed_images_regex: str = processor_def["allowed_images_regex"]
         self.image_pull_secret: str = processor_def["image_pull_secret"]
         self.s3: Optional[Dict[str, str]] = processor_def.get("s3")
         self.home_volume_claim_name: str = processor_def["home_volume_claim_name"]
@@ -227,19 +229,18 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
     ) -> KubernetesProcessor.JobPodSpec:
         LOGGER.debug("Starting job with data %s", data)
 
-        # TODO: allow override from parameter, possibly restrict
-        image = self.default_image
-        image_name = image.split(":")[0]
-
-        is_gpu = "jupyter-user-g" in image_name
-        is_edc = "jupyter-user" in image_name
-
-        data.setdefault("kernel", default_kernel(is_gpu=is_gpu, is_edc=is_edc))
-
         try:
             requested = RequestParameters.from_dict(data)
         except (TypeError, KeyError) as e:
             raise ProcessorExecuteError(str(e)) from e
+
+        image = self._image(requested.image)
+
+        image_name = image.split(":")[0]
+        is_gpu = "jupyter-user-g" in image_name
+        is_edc = "eurodatacube" in image_name and "jupyter-user" in image_name
+
+        kernel = requested.kernel or default_kernel(is_gpu=is_gpu, is_edc=is_edc)
 
         output_filename_validated = PurePath(
             requested.output_filename
@@ -313,7 +314,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 "--request-save-on-cell-execute "
                 f'--cwd "{working_dir(requested.notebook)}" '
                 + ("--log-output " if self.log_output else "")
-                + (f"-k {requested.kernel} " if requested.kernel else "")
+                + (f"-k {kernel} " if kernel else "")
                 + (f'-b "{requested.parameters}" ' if requested.parameters else ""),
             ],
             working_dir=str(CONTAINER_HOME),
@@ -407,7 +408,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
 
         return functools.reduce(operator.add, extra_configs(), ExtraConfig())
 
-    def _extra_labels(self, run_on_fargate: Optional[bool]):
+    def _extra_labels(self, run_on_fargate: Optional[bool]) -> Dict:
         if run_on_fargate:
             if not self.allow_fargate:
                 raise RuntimeError("run_on_fargate is not allowed on this pygeoapi")
@@ -415,6 +416,15 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 return {"runtime": "fargate"}
         else:
             return {}
+
+    def _image(self, requested_image: Optional[str]) -> str:
+        image = requested_image or self.default_image
+        if self.allowed_images_regex:
+            if not re.fullmatch(self.allowed_images_regex, image):
+                msg = f"Image {image} is not allowed, only {self.allowed_images_regex}"
+                raise RuntimeError(msg)
+
+        return image
 
     def __repr__(self):
         return "<PapermillNotebookKubernetesProcessor> {}".format(self.name)
@@ -842,13 +852,13 @@ def drop_none_values(d: Dict) -> Dict:
     return {k: v for k, v in d.items() if v is not None}
 
 
-def default_kernel(is_gpu: bool, is_edc: bool) -> str:
+def default_kernel(is_gpu: bool, is_edc: bool) -> Optional[str]:
     if is_gpu:
         return "edc-gpu"
     elif is_edc:
         return "edc"
     else:
-        return ""
+        return None
 
 
 def affinity(node_purpose: str) -> k8s_client.V1Affinity:
