@@ -420,7 +420,7 @@ def test_git_checkout_init_container_is_added(create_pod_kwargs):
     processor = _create_processor(checkout_conf)
 
     job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
-    assert "git-sync" in [c.name for c in job_pod_spec.pod_spec.init_containers]
+    assert "git" in [c.name for c in job_pod_spec.pod_spec.init_containers]
     assert "/home/jovyan/git" in [
         m.mount_path for m in job_pod_spec.pod_spec.containers[0].volume_mounts
     ]

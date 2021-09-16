@@ -676,29 +676,30 @@ def extra_auto_secrets() -> ExtraConfig:
 def git_checkout_config(
     url: str, secret_name: str, git_revision: Optional[str]
 ) -> ExtraConfig:
+
+    # compat for old python
+    def removeprefix(self, prefix: str) -> str:
+        if self.startswith(prefix):
+            return self[len(prefix):]
+        else:
+            return self[:]
+
     git_sync_mount_name = "git-sync-mount"
+    git_sync_mount_path = "/tmp/git"
+    git_sync_target_path = f"{git_sync_mount_path}/{GIT_CHECKOUT_PATH.name}"
 
     init_container = k8s_client.V1Container(
-        name="git-sync",
-        image="k8s.gcr.io/git-sync/git-sync:v3.3.0",
+        name="git",
+        image="alpine/git:v2.30.2",
         volume_mounts=[
             k8s_client.V1VolumeMount(
                 name=git_sync_mount_name,
-                mount_path="/tmp/git",  # as per container default
+                mount_path=git_sync_mount_path,
             ),
         ],
         env=[
             k8s_client.V1EnvVar(
-                name="GIT_SYNC_REPO",
-                value=url,
-            ),
-            k8s_client.V1EnvVar(name="GIT_SYNC_DEST", value=GIT_CHECKOUT_PATH.name),
-            k8s_client.V1EnvVar(
-                name="GIT_SYNC_ONE_TIME",
-                value="true",
-            ),
-            k8s_client.V1EnvVar(
-                name="GIT_SYNC_USERNAME",
+                name="GIT_USERNAME",
                 value_from=k8s_client.V1EnvVarSource(
                     secret_key_ref=k8s_client.V1SecretKeySelector(
                         name=secret_name,
@@ -707,7 +708,7 @@ def git_checkout_config(
                 ),
             ),
             k8s_client.V1EnvVar(
-                name="GIT_SYNC_PASSWORD",
+                name="GIT_PASSWORD",
                 value_from=k8s_client.V1EnvVarSource(
                     secret_key_ref=k8s_client.V1SecretKeySelector(
                         name=secret_name,
@@ -721,6 +722,18 @@ def git_checkout_config(
             if git_revision
             else []
         ),
+        command=[
+            "sh",
+            "-c",
+            "git clone "
+            f"https://${{GIT_USERNAME}}:${{GIT_PASSWORD}}@{removeprefix(url, 'https://')}"
+            f" \"{git_sync_target_path}\" "
+            + (
+                ""
+                if not git_revision
+                else f" && cd \"{git_sync_target_path}\" && git checkout " + git_revision
+            )
+        ],
         security_context=k8s_client.V1SecurityContext(
             run_as_user=int(JOVIAN_UID),
             run_as_group=int(JOVIAN_GID),

@@ -1,3 +1,6 @@
+## 0.0.78
+* Support arbitrary default branch name on git checkout
+
 ## 0.0.77
 * Allow specifying images for each execution
 
