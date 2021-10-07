@@ -1,3 +1,6 @@
+## 1.0.0
+* This is really the same as 0.0.78 but it feels stable now
+
 ## 0.0.78
 * Support arbitrary default branch name on git checkout
 
