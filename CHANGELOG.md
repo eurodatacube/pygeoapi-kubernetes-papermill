@@ -1,3 +1,7 @@
+## 1.0.1
+* Update s3fs
+* Obfusicate parameters which look like passwords in UI
+
 ## 1.0.0
 * This is really the same as 0.0.78 but it feels stable now
 

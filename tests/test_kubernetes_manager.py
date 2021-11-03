@@ -28,6 +28,7 @@
 # =================================================================
 
 from pygeoapi.util import JobStatus
+import json
 import pytest
 from unittest import mock
 from kubernetes import client as k8s_client
@@ -35,6 +36,9 @@ from kubernetes import client as k8s_client
 from pygeoapi_kubernetes_papermill import (
     KubernetesManager,
     PapermillNotebookKubernetesProcessor,
+)
+from pygeoapi_kubernetes_papermill.kubernetes import (
+    job_from_k8s,
 )
 
 
@@ -248,3 +252,18 @@ def test_accepted_jobs_show_events(
     jobs = manager.get_jobs()
 
     assert jobs[0]["message"] == "last event"
+
+
+def test_secret_job_annotation_parameters_are_hidden():
+    job = k8s_client.V1Job(
+        metadata=k8s_client.V1ObjectMeta(
+            annotations={
+                "pygeoapi.io/parameters": '{"foo": "bar", "foo-secret": "bar"}',
+            }
+        ),
+        status=k8s_client.V1JobStatus(),
+    )
+    job_dict = job_from_k8s(job, message="")
+    parameters = json.loads(job_dict["parameters"])
+    assert parameters["foo"] == "bar"
+    assert parameters["foo-secret"] == "*"

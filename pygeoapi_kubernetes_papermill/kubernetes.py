@@ -32,6 +32,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from http import HTTPStatus
+import json
 import logging
 import re
 import time
@@ -412,6 +413,17 @@ def job_from_k8s(job: k8s_client.V1Job, message: Optional[str]) -> JobDict:
         if (parsed_key := parse_annotation_key(orig_key))
     }
 
+    try:
+        metadata_from_annotation["parameters"] = json.dumps(
+            hide_secret_values(
+                json.loads(
+                    metadata_from_annotation.get("parameters", "{}"),
+                ),
+            )
+        )
+    except json.JSONDecodeError:
+        LOGGER.info("cant obfuscate parameters, not valid json", exc_info=True)
+
     status = job_status_from_k8s(job.status)
     completion_time = get_completion_time(job, status)
 
@@ -432,6 +444,17 @@ def job_from_k8s(job: k8s_client.V1Job, message: Optional[str]) -> JobDict:
             **metadata_from_annotation,
         },
     )
+
+
+def hide_secret_values(d: dict[str, str]) -> dict[str, str]:
+    def transform_value(k, v):
+        return (
+            "*"
+            if any(trigger in k.lower() for trigger in ["secret", "key", "password"])
+            else v
+        )
+
+    return {k: transform_value(k, v) for k, v in d.items()}
 
 
 def get_completion_time(job: k8s_client.V1Job, status: JobStatus) -> Optional[datetime]:
