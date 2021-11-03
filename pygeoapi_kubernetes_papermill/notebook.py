@@ -776,7 +776,7 @@ def s3_config(bucket_name, secret_name, s3_url) -> ExtraConfig:
         containers=[
             k8s_client.V1Container(
                 name="s3mounter",
-                image="totycro/s3fs:0.6.0-1.86",
+                image="totycro/s3fs:0.7.0-1.90",
                 # we need to detect the end of the job here, this container
                 # must end for the job to be considered done by k8s
                 # this is a missing feature in k8s:
