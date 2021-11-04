@@ -29,7 +29,7 @@
 
 from base64 import b64encode, b64decode
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, date
 import functools
 import json
 import logging
@@ -212,7 +212,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         self.home_volume_claim_name: str = processor_def["home_volume_claim_name"]
         self.extra_pvcs: List = processor_def["extra_pvcs"]
         self.jupyer_base_url: str = processor_def["jupyter_base_url"]
-        self.output_directory: Path = Path(processor_def["output_directory"])
+        self.base_output_directory: Path = Path(processor_def["output_directory"])
         self.secrets = processor_def["secrets"]
         self.checkout_git_repo: Optional[Dict] = processor_def.get("checkout_git_repo")
         self.log_output: bool = processor_def["log_output"]
@@ -250,8 +250,9 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 job_id=job_id_from_job_name(job_name),
             )
         ).name
+        output_directory = self.base_output_directory / date.today().isoformat()
         output_notebook = setup_output_notebook(
-            output_directory=self.output_directory,
+            output_directory=output_directory,
             output_notebook_filename=output_filename_validated,
         )
 
@@ -306,7 +307,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 #       for now since that command doesn't do any harm.
                 #       (it will be a problem if there are ever a lot of output files,
                 #       especially on s3fs)
-                f"ls -la {self.output_directory} >/dev/null && "
+                f"ls -la {output_directory} >/dev/null && "
                 f"papermill "
                 f'"{requested.notebook}" '
                 f'"{output_notebook}" '

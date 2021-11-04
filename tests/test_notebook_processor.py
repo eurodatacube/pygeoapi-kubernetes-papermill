@@ -29,8 +29,10 @@
 
 from base64 import b64encode
 import copy
+import datetime
 import json
 from pathlib import Path
+import shutil
 import stat
 from typing import Dict, Callable
 from unittest import mock
@@ -55,7 +57,7 @@ OUTPUT_DIRECTORY = "/home/jovyan/foo/test"
 def cleanup_job_directory():
     if (job_dir := Path(OUTPUT_DIRECTORY)).exists():
         for file in job_dir.iterdir():
-            file.unlink()
+            shutil.rmtree(file)
 
 
 def _create_processor(def_override=None) -> PapermillNotebookKubernetesProcessor:
@@ -153,7 +155,9 @@ def test_output_is_written_to_output_dir(create_pod_kwargs):
     processor = _create_processor({"output_directory": output_dir})
     job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
 
-    assert output_dir + "/a_result" in str(job_pod_spec.pod_spec.containers[0].command)
+    assert output_dir + f"/{datetime.date.today()}/a_result" in str(
+        job_pod_spec.pod_spec.containers[0].command
+    )
 
 
 def test_gpu_image_produces_gpu_kernel(papermill_gpu_processor, create_pod_kwargs):
@@ -283,7 +287,9 @@ def test_output_path_owned_by_job_runner_group_and_group_writable(
         **create_pod_kwargs_with({"output_filename": output_filename})
     )
 
-    output_notebook = Path(OUTPUT_DIRECTORY) / output_filename
+    output_notebook = (
+        Path(OUTPUT_DIRECTORY) / datetime.date.today().isoformat() / output_filename
+    )
     assert output_notebook.stat().st_gid == JOB_RUNNER_GROUP_ID
 
     assert output_notebook.stat().st_mode & stat.S_IWGRP  # write group

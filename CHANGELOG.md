@@ -1,4 +1,8 @@
 ## 1.0.1
+* Disable autosave in papermill
+* Write output files in subdirectory according to the current day
+
+## 1.0.1
 * Update s3fs
 * Obfusicate parameters which look like passwords in UI
 
