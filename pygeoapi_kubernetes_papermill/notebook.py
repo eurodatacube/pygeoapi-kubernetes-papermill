@@ -312,6 +312,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 f'"{output_notebook}" '
                 "--engine kubernetes_job_progress "
                 "--request-save-on-cell-execute "
+                "--autosave-cell-every 0 "
                 f'--cwd "{working_dir(requested.notebook)}" '
                 + ("--log-output " if self.log_output else "")
                 + (f"-k {kernel} " if kernel else "")
