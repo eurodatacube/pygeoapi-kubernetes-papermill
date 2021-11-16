@@ -247,6 +247,10 @@ class KubernetesManager(BaseManager):
             self.core_api.delete_namespaced_pod(
                 name=pod.metadata.name,
                 namespace=self.namespace,
+                # NOTE: this is equivalent to force delete. we have to use it containers
+                # can get stuck due to k8s not cleaning up, which prevents autoscaling
+                # from removing nodes and thus incurring costs.
+                grace_period_seconds=0,
             )
         return True
 

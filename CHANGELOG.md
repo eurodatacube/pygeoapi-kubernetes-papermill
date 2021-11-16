@@ -1,3 +1,10 @@
+## 1.0.3
+* Delete pods of cancelled jobs by force
+
+## 1.0.2
+* Write output files in subdirectory according to the current day
+* Disable papermill autosave
+
 ## 1.0.1
 * Disable autosave in papermill
 * Write output files in subdirectory according to the current day
