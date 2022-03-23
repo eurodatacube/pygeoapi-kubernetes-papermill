@@ -1,3 +1,6 @@
+## 1.0.4
+* Allow dynamic override of node_purpose protected by allowed_node_purposes_regex
+
 ## 1.0.3
 * Delete pods of cancelled jobs by force
 
