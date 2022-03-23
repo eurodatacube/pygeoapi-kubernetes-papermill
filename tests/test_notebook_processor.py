@@ -75,7 +75,8 @@ def _create_processor(def_override=None) -> PapermillNotebookKubernetesProcessor
             "jupyter_base_url": "",
             "output_directory": OUTPUT_DIRECTORY,
             "secrets": [],
-            "node_purpose": None,
+            "default_node_purpose": "d123",
+            "allowed_node_purposes_regex": "d123|my-new-special-node",
             "tolerations": [],
             "log_output": False,
             "job_service_account": "job-service-account",
@@ -165,28 +166,16 @@ def test_gpu_image_produces_gpu_kernel(papermill_gpu_processor, create_pod_kwarg
     assert "-k edc-gpu" in str(job_pod_spec.pod_spec.containers[0].command)
 
 
-def test_default_image_has_no_affinity(papermill_processor, create_pod_kwargs):
-    job_pod_spec = papermill_processor.create_job_pod_spec(**create_pod_kwargs)
-
-    assert job_pod_spec.pod_spec.affinity is None
-    assert job_pod_spec.pod_spec.tolerations == []
-
-
-def test_gpu_image_has_affinity(papermill_gpu_processor, create_pod_kwargs):
+def test_gpu_image_has_toleration(papermill_gpu_processor, create_pod_kwargs):
     job_pod_spec = papermill_gpu_processor.create_job_pod_spec(**create_pod_kwargs)
-
-    node_affinity = job_pod_spec.pod_spec.affinity.node_affinity
-    r = node_affinity.required_during_scheduling_ignored_during_execution
-    assert r.node_selector_terms[0].match_expressions[0].values == ["g2"]
     assert job_pod_spec.pod_spec.tolerations[0].key == "hub.eox.at/gpu"
 
 
 def test_node_selector_and_gpu_image_can_be_combined(create_pod_kwargs):
-
     processor = _create_processor(
         {
             "default_image": "jupyter-user-g:1.2.3",
-            "node_purpose": "custom-node-1",
+            "default_node_purpose": "custom-node-1",
         }
     )
     job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
@@ -477,6 +466,9 @@ def test_run_on_fargate_sets_label(create_pod_kwargs_with):
 
     assert job_pod_spec.extra_labels["runtime"] == "fargate"
 
+    # this must also disable node selectors
+    assert not job_pod_spec.pod_spec.affinity
+
 
 def test_tolerations_are_added(create_pod_kwargs):
     processor = _create_processor(
@@ -548,3 +540,30 @@ def test_not_allowed_custom_image_is_rejected(create_pod_kwargs_with):
     processor = _create_processor({"allowed_images_regex": "euro.*:1\\.*"})
     with pytest.raises(RuntimeError):
         processor.create_job_pod_spec(**create_pod_kwargs_with({"image": image}))
+
+
+def test_default_image_has_affinity(papermill_processor, create_pod_kwargs):
+    job_pod_spec = papermill_processor.create_job_pod_spec(**create_pod_kwargs)
+
+    node_affinity = job_pod_spec.pod_spec.affinity.node_affinity
+    r = node_affinity.required_during_scheduling_ignored_during_execution
+    assert r.node_selector_terms[0].match_expressions[0].values == ["d123"]
+
+
+def test_node_selector_can_be_overwritten(create_pod_kwargs_with, papermill_processor):
+    node_purpose = "my-new-special-node"
+    job_pod_spec = papermill_processor.create_job_pod_spec(
+        **create_pod_kwargs_with({"node_purpose": node_purpose})
+    )
+
+    node_affinity = job_pod_spec.pod_spec.affinity.node_affinity
+    r = node_affinity.required_during_scheduling_ignored_during_execution
+    assert r.node_selector_terms[0].match_expressions[0].values == [node_purpose]
+
+
+def test_node_selector_restriced_by_regex(create_pod_kwargs_with, papermill_processor):
+    node_purpose = "disallowed-node"
+    with pytest.raises(RuntimeError):
+        papermill_processor.create_job_pod_spec(
+            **create_pod_kwargs_with({"node_purpose": node_purpose})
+        )

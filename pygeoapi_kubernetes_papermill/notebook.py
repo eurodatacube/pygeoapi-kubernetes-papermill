@@ -182,6 +182,7 @@ class RequestParameters(TypedJsonMixin):
     result_data_directory: Optional[str] = None
     git_revision: Optional[str] = None
     run_on_fargate: Optional[bool] = False
+    node_purpose: Optional[str] = ""
 
     @classmethod
     def from_dict(cls, data: dict) -> "RequestParameters":
@@ -216,7 +217,10 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         self.secrets = processor_def["secrets"]
         self.checkout_git_repo: Optional[Dict] = processor_def.get("checkout_git_repo")
         self.log_output: bool = processor_def["log_output"]
-        self.node_purpose: str = processor_def["node_purpose"]
+        self.default_node_purpose: str = processor_def["default_node_purpose"]
+        self.allowed_node_purposes_regex: str = processor_def[
+            "allowed_node_purposes_regex"
+        ]
         self.tolerations: list = processor_def["tolerations"]
         self.job_service_account: str = processor_def["job_service_account"]
         self.allow_fargate: bool = processor_def["allow_fargate"]
@@ -256,6 +260,9 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             output_notebook_filename=output_filename_validated,
         )
 
+        if requested.run_on_fargate and not self.allow_fargate:
+            raise RuntimeError("run_on_fargate is not allowed on this pygeoapi")
+
         extra_podspec: dict[str, Any] = {
             "tolerations": [
                 k8s_client.V1Toleration(**toleration) for toleration in self.tolerations
@@ -268,11 +275,11 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 ]
                 if is_gpu
                 else []
-            )
+            ),
         }
 
-        if node_purpose := self.node_purpose or ("g2" if is_gpu else None):
-            extra_podspec["affinity"] = affinity(node_purpose=node_purpose)
+        if not requested.run_on_fargate:
+            extra_podspec["affinity"] = self.affinity(requested.node_purpose)
 
         if self.image_pull_secret:
             extra_podspec["image_pull_secrets"] = [
@@ -371,7 +378,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 enable_service_links=False,
             ),
             extra_annotations=extra_annotations,
-            extra_labels=self._extra_labels(run_on_fargate=requested.run_on_fargate),
+            extra_labels={"runtime": "fargate"} if requested.run_on_fargate else {},
         )
 
     def _extra_configs(self, git_revision: Optional[str]) -> ExtraConfig:
@@ -410,15 +417,6 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
 
         return functools.reduce(operator.add, extra_configs(), ExtraConfig())
 
-    def _extra_labels(self, run_on_fargate: Optional[bool]) -> Dict:
-        if run_on_fargate:
-            if not self.allow_fargate:
-                raise RuntimeError("run_on_fargate is not allowed on this pygeoapi")
-            else:
-                return {"runtime": "fargate"}
-        else:
-            return {}
-
     def _image(self, requested_image: Optional[str]) -> str:
         image = requested_image or self.default_image
         if self.allowed_images_regex:
@@ -427,6 +425,37 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 raise RuntimeError(msg)
 
         return image
+
+    def affinity(self, requested_node_purpose: Optional[str]) -> k8s_client.V1Affinity:
+        if node_purpose := requested_node_purpose:
+            if not re.fullmatch(
+                self.allowed_node_purposes_regex, requested_node_purpose
+            ):
+                raise RuntimeError(
+                    f"Node purpose {requested_node_purpose} not allowed, "
+                    f"only {self.allowed_node_purposes_regex}"
+                )
+        else:
+            node_purpose = self.default_node_purpose
+
+        node_selector = k8s_client.V1NodeSelector(
+            node_selector_terms=[
+                k8s_client.V1NodeSelectorTerm(
+                    match_expressions=[
+                        k8s_client.V1NodeSelectorRequirement(
+                            key="hub.eox.at/node-purpose",
+                            operator="In",
+                            values=[node_purpose],
+                        ),
+                    ]
+                )
+            ]
+        )
+        return k8s_client.V1Affinity(
+            node_affinity=k8s_client.V1NodeAffinity(
+                required_during_scheduling_ignored_during_execution=node_selector
+            )
+        )
 
     def __repr__(self):
         return "<PapermillNotebookKubernetesProcessor> {}".format(self.name)
@@ -729,12 +758,12 @@ def git_checkout_config(
             "-c",
             "git clone "
             f"https://${{GIT_USERNAME}}:${{GIT_PASSWORD}}@{removeprefix(url, 'https://')}"
-            f" \"{git_sync_target_path}\" "
+            f' "{git_sync_target_path}" '
             + (
                 ""
                 if not git_revision
-                else f" && cd \"{git_sync_target_path}\" && git checkout " + git_revision
-            )
+                else f' && cd "{git_sync_target_path}" && git checkout ' + git_revision
+            ),
         ],
         security_context=k8s_client.V1SecurityContext(
             run_as_user=int(JOVIAN_UID),
@@ -874,24 +903,3 @@ def default_kernel(is_gpu: bool, is_edc: bool) -> Optional[str]:
         return "edc"
     else:
         return None
-
-
-def affinity(node_purpose: str) -> k8s_client.V1Affinity:
-    node_selector = k8s_client.V1NodeSelector(
-        node_selector_terms=[
-            k8s_client.V1NodeSelectorTerm(
-                match_expressions=[
-                    k8s_client.V1NodeSelectorRequirement(
-                        key="hub.eox.at/node-purpose",
-                        operator="In",
-                        values=[node_purpose],
-                    ),
-                ]
-            )
-        ]
-    )
-    return k8s_client.V1Affinity(
-        node_affinity=k8s_client.V1NodeAffinity(
-            required_during_scheduling_ignored_during_execution=node_selector
-        )
-    )
