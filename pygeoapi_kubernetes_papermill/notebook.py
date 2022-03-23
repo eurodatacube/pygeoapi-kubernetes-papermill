@@ -187,7 +187,7 @@ class RequestParameters(TypedJsonMixin):
     @classmethod
     def from_dict(cls, data: dict) -> "RequestParameters":
 
-        data_preprocessed: dict[str, Any] = {
+        data_preprocessed: Dict[str, Any] = {
             **data,
             "notebook": PurePath(data["notebook"]),
         }
@@ -263,7 +263,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         if requested.run_on_fargate and not self.allow_fargate:
             raise RuntimeError("run_on_fargate is not allowed on this pygeoapi")
 
-        extra_podspec: dict[str, Any] = {
+        extra_podspec: Dict[str, Any] = {
             "tolerations": [
                 k8s_client.V1Toleration(**toleration) for toleration in self.tolerations
             ]
