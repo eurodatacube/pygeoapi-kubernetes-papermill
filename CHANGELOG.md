@@ -1,3 +1,6 @@
+## 1.0.6
+* Save parameters which are passed as yaml as json
+
 ## 1.0.5
 * Fix build
 
