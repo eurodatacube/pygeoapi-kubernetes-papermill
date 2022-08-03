@@ -139,6 +139,14 @@ def test_json_params_are_b64_encoded(papermill_processor, create_pod_kwargs_with
     )
 
 
+def test_yaml_parameters_are_saved_as_json(papermill_processor, create_pod_kwargs_with):
+    payload = b64encode(b"a: 3").decode()
+    job_pod_spec = papermill_processor.create_job_pod_spec(
+        **create_pod_kwargs_with({"parameters": payload})
+    )
+    assert job_pod_spec.extra_annotations["parameters"] == '{"a": 3}'
+
+
 def test_custom_output_file_overwrites_default(
     papermill_processor, create_pod_kwargs_with
 ):

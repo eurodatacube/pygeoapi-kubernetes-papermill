@@ -45,6 +45,7 @@ import scrapbook.scraps
 from typing import Dict, Iterable, Optional, List, Tuple, Any
 from typed_json_dataclass import TypedJsonMixin
 import urllib.parse
+import yaml
 
 from kubernetes import client as k8s_client
 
@@ -353,9 +354,15 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             + urllib.parse.quote(str(output_notebook.relative_to(CONTAINER_HOME)))
         )
 
+        # json is much cheaper to parse, and we accept both b64-yaml and
+        # json as input, so save as json
+        parameters_str = b64decode(requested.parameters.encode()).decode()
+        parameters_as_json = (
+            json.dumps(yaml.safe_load(parameters_str)) if requested.parameters else ""
+        )
         # save parameters but make sure the string is not too long
         extra_annotations = {
-            "parameters": b64decode(requested.parameters).decode()[:8000],
+            "parameters": parameters_as_json[:8000],
             "result-link": result_link,
             "result-notebook": str(output_notebook),
         }
@@ -711,7 +718,7 @@ def git_checkout_config(
     # compat for old python
     def removeprefix(self, prefix: str) -> str:
         if self.startswith(prefix):
-            return self[len(prefix):]
+            return self[len(prefix) :]  # noqa: E203
         else:
             return self[:]
 
