@@ -114,12 +114,12 @@ def mock_list_events():
     with mock.patch(
         "pygeoapi_kubernetes_papermill."
         "kubernetes.k8s_client.CoreV1Api.list_namespaced_event",
-        return_value=k8s_client.V1EventList(
+        return_value=k8s_client.CoreV1EventList(
             items=[
-                k8s_client.V1Event(
+                k8s_client.CoreV1Event(
                     message="first event", involved_object=object(), metadata=object()
                 ),
-                k8s_client.V1Event(
+                k8s_client.CoreV1Event(
                     message="last event", involved_object=object(), metadata=object()
                 ),
             ]
