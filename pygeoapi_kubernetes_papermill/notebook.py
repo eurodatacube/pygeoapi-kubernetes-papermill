@@ -226,6 +226,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         self.job_service_account: str = processor_def["job_service_account"]
         self.allow_fargate: bool = processor_def["allow_fargate"]
         self.auto_mount_secrets: bool = processor_def["auto_mount_secrets"]
+        self.node_purpose_label_key: str = processor_def["node_purpose_label_key"]
 
     def create_job_pod_spec(
         self,
@@ -450,7 +451,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 k8s_client.V1NodeSelectorTerm(
                     match_expressions=[
                         k8s_client.V1NodeSelectorRequirement(
-                            key="hub.eox.at/node-purpose",
+                            key=self.node_purpose_label_key,
                             operator="In",
                             values=[node_purpose],
                         ),
@@ -592,6 +593,7 @@ def _resource_requirements(requested: RequestParameters):
             }
         ),
     )
+
 
 def home_volume_config(home_volume_claim_name: str) -> ExtraConfig:
     return ExtraConfig(
