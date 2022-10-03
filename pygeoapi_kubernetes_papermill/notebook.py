@@ -273,13 +273,11 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 k8s_client.V1Toleration(
                     # alwyas tolerate gpu, is selected by node group only
                     key="nvidia.com/gpu",
-                    value="true",
                     operator="Exists",
                     effect="NoSchedule",
                 ),
                 k8s_client.V1Toleration(
                     key="hub.jupyter.org/dedicated",
-                    value="user",
                     operator="Exists",
                     effect="NoSchedule",
                 ),
