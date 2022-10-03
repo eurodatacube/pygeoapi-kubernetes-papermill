@@ -1,3 +1,6 @@
+## 1.0.7
+* Setup for new hub
+
 ## 1.0.6
 * Save parameters which are passed as yaml as json
 
