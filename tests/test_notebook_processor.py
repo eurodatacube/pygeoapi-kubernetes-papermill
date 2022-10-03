@@ -82,6 +82,7 @@ def _create_processor(def_override=None) -> PapermillNotebookKubernetesProcessor
             "job_service_account": "job-service-account",
             "allow_fargate": False,
             "auto_mount_secrets": False,
+            "node_purpose_label_key": "hub.example.com/node",
             **(def_override if def_override else {}),
         }
     )
@@ -176,7 +177,9 @@ def test_gpu_image_produces_gpu_kernel(papermill_gpu_processor, create_pod_kwarg
 
 def test_gpu_image_has_toleration(papermill_gpu_processor, create_pod_kwargs):
     job_pod_spec = papermill_gpu_processor.create_job_pod_spec(**create_pod_kwargs)
-    assert job_pod_spec.pod_spec.tolerations[0].key == "hub.eox.at/gpu"
+    assert "hub.eox.at/gpu" in (
+        toleration.key for toleration in job_pod_spec.pod_spec.tolerations
+    )
 
 
 def test_node_selector_and_gpu_image_can_be_combined(create_pod_kwargs):
@@ -191,7 +194,9 @@ def test_node_selector_and_gpu_image_can_be_combined(create_pod_kwargs):
     node_affinity = job_pod_spec.pod_spec.affinity.node_affinity
     r = node_affinity.required_during_scheduling_ignored_during_execution
     assert r.node_selector_terms[0].match_expressions[0].values == ["custom-node-1"]
-    assert job_pod_spec.pod_spec.tolerations[0].key == "hub.eox.at/gpu"
+    assert "hub.eox.at/gpu" in (
+        toleration.key for toleration in job_pod_spec.pod_spec.tolerations
+    )
 
 
 def test_no_s3_bucket_by_default(papermill_processor, create_pod_kwargs):

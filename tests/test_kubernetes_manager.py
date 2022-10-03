@@ -189,6 +189,7 @@ def papermill_processor() -> PapermillNotebookKubernetesProcessor:
             "job_service_account": "job-service-account",
             "allow_fargate": False,
             "auto_mount_secrets": False,
+            "node_purpose_label_key": "hub.example.com/node",
         }
     )
 
