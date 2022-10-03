@@ -593,35 +593,6 @@ def _resource_requirements(requested: RequestParameters):
         ),
     )
 
-
-def gpu_extra_podspec() -> Dict:
-    node_selector = k8s_client.V1NodeSelector(
-        node_selector_terms=[
-            k8s_client.V1NodeSelectorTerm(
-                match_expressions=[
-                    k8s_client.V1NodeSelectorRequirement(
-                        key="hub.eox.at/node-purpose",
-                        operator="In",
-                        values=["g2"],
-                    ),
-                ]
-            )
-        ]
-    )
-    return {
-        "affinity": k8s_client.V1Affinity(
-            node_affinity=k8s_client.V1NodeAffinity(
-                required_during_scheduling_ignored_during_execution=node_selector
-            )
-        ),
-        "tolerations": [
-            k8s_client.V1Toleration(
-                key="hub.eox.at/gpu", operator="Exists", effect="NoSchedule"
-            )
-        ],
-    }
-
-
 def home_volume_config(home_volume_claim_name: str) -> ExtraConfig:
     return ExtraConfig(
         volumes=[
