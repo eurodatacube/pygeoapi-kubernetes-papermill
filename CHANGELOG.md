@@ -1,3 +1,6 @@
+## 1.0.10
+* Run papermill_slack if env var is defined
+
 ## 1.0.9
 * Setup for new hub
 

@@ -303,6 +303,11 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
 
         extra_config = self._extra_configs(git_revision=requested.git_revision)
 
+        papermill_slack_cmd = (
+            'if [ -n "$PAPERMILL_SLACK_WEBHOOK_URL" ] ; '
+            f'then papermill_slack "{output_notebook}"; fi '
+        )
+
         notebook_container = k8s_client.V1Container(
             name="notebook",
             image=image,
@@ -329,7 +334,8 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 #       for now since that command doesn't do any harm.
                 #       (it will be a problem if there are ever a lot of output files,
                 #       especially on s3fs)
-                f"ls -la {output_directory} >/dev/null && "
+                f"ls -la {output_directory} >/dev/null"
+                " && "
                 f"papermill "
                 f'"{requested.notebook}" '
                 f'"{output_notebook}" '
@@ -339,7 +345,9 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 f'--cwd "{working_dir(requested.notebook)}" '
                 + ("--log-output " if self.log_output else "")
                 + (f"-k {kernel} " if kernel else "")
-                + (f'-b "{requested.parameters}" ' if requested.parameters else ""),
+                + (f'-b "{requested.parameters}" ' if requested.parameters else "")
+                + " && "
+                + papermill_slack_cmd,
             ],
             working_dir=str(CONTAINER_HOME),
             volume_mounts=extra_config.volume_mounts,
