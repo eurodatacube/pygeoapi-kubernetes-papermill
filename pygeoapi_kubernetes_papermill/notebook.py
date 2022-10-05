@@ -227,6 +227,9 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         self.allow_fargate: bool = processor_def["allow_fargate"]
         self.auto_mount_secrets: bool = processor_def["auto_mount_secrets"]
         self.node_purpose_label_key: str = processor_def["node_purpose_label_key"]
+        self.custom_job_setup_script: str = processor_def["custom_job_setup_script"]
+        self.run_as_user: Optional[int] = processor_def["run_as_user"]
+        self.run_as_group: Optional[int] = processor_def["run_as_group"]
 
     def create_job_pod_spec(
         self,
@@ -327,6 +330,11 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                     if requested.result_data_directory
                     else ""
                 )
+                + (
+                    f" {self.custom_job_setup_script} && "
+                    if self.custom_job_setup_script
+                    else ""
+                )
                 +
                 # TODO: weird bug: removing this ls results in a PermissionError when
                 #       papermill later writes to the file. This only happens sometimes,
@@ -401,7 +409,11 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 share_process_namespace=True,
                 service_account=self.job_service_account,
                 security_context=k8s_client.V1PodSecurityContext(
-                    supplemental_groups=[JOB_RUNNER_GROUP_ID]
+                    supplemental_groups=[JOB_RUNNER_GROUP_ID],
+                    **({"run_as_user": self.run_as_user} if self.run_as_user else {}),
+                    **(
+                        {"run_as_group": self.run_as_group} if self.run_as_group else {}
+                    ),
                 ),
                 **extra_podspec,
                 enable_service_links=False,
