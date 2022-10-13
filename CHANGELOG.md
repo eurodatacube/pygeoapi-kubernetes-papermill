@@ -1,3 +1,7 @@
+
+* Add more qhub-related options
+* Run papermill_slack also if papermill fails
+
 ## 1.0.10
 * Run papermill_slack if env var is defined
 

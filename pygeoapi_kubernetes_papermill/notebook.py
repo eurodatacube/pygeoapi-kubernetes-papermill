@@ -311,6 +311,19 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             f'then papermill_slack "{output_notebook}"; fi '
         )
 
+        papermill_cmd = (
+            f"papermill "
+            f'"{requested.notebook}" '
+            f'"{output_notebook}" '
+            "--engine kubernetes_job_progress "
+            "--request-save-on-cell-execute "
+            "--autosave-cell-every 0 "
+            f'--cwd "{working_dir(requested.notebook)}" '
+            + ("--log-output " if self.log_output else "")
+            + (f"-k {kernel} " if kernel else "")
+            + (f'-b "{requested.parameters}" ' if requested.parameters else "")
+        )
+
         notebook_container = k8s_client.V1Container(
             name="notebook",
             image=image,
@@ -344,18 +357,12 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 #       especially on s3fs)
                 f"ls -la {output_directory} >/dev/null"
                 " && "
-                f"papermill "
-                f'"{requested.notebook}" '
-                f'"{output_notebook}" '
-                "--engine kubernetes_job_progress "
-                "--request-save-on-cell-execute "
-                "--autosave-cell-every 0 "
-                f'--cwd "{working_dir(requested.notebook)}" '
-                + ("--log-output " if self.log_output else "")
-                + (f"-k {kernel} " if kernel else "")
-                + (f'-b "{requested.parameters}" ' if requested.parameters else "")
+                + papermill_cmd
+                + "; PAPERMILL_EXIT_CODE=$? "
                 + " && "
-                + papermill_slack_cmd,
+                + papermill_slack_cmd
+                + " && "
+                + "exit $PAPERMILL_EXIT_CODE",
             ],
             working_dir=str(CONTAINER_HOME),
             volume_mounts=extra_config.volume_mounts,
