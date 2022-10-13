@@ -1,4 +1,4 @@
-
+## 1.0.12
 * Add more qhub-related options
 * Run papermill_slack also if papermill fails
 

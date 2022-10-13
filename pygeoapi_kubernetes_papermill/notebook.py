@@ -343,11 +343,6 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                     if requested.result_data_directory
                     else ""
                 )
-                + (
-                    f" {self.custom_job_setup_script} && "
-                    if self.custom_job_setup_script
-                    else ""
-                )
                 +
                 # TODO: weird bug: removing this ls results in a PermissionError when
                 #       papermill later writes to the file. This only happens sometimes,
@@ -377,6 +372,17 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 ),
             ],
             env_from=extra_config.env_from,
+            lifecycle=(
+                k8s_client.V1Lifecycle(
+                    post_start=k8s_client.V1LifecycleHandler(
+                        _exec=k8s_client.V1ExecAction(
+                            ["/bin/sh", "-c", self.custom_job_setup_script]
+                        )
+                    )
+                )
+                if self.custom_job_setup_script
+                else None
+            ),
         )
 
         # NOTE: this link currently doesn't work (even those created in
