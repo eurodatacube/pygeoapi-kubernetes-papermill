@@ -1,4 +1,4 @@
-## 1.1.0
+## 1.0.13
 * Use jovyan user as owner of result notebook to try to avoid spurious permission denied
 
 ## 1.0.12
