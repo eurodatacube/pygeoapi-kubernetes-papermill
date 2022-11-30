@@ -33,7 +33,6 @@ import datetime
 import json
 from pathlib import Path
 import shutil
-import stat
 from typing import Dict, Callable
 from unittest import mock
 
@@ -45,7 +44,6 @@ from pygeoapi.process.base import ProcessorExecuteError
 from pygeoapi_kubernetes_papermill.kubernetes import JobDict
 from pygeoapi_kubernetes_papermill.notebook import (
     CONTAINER_HOME,
-    JOB_RUNNER_GROUP_ID,
     PapermillNotebookKubernetesProcessor,
     notebook_job_output,
 )
@@ -282,22 +280,6 @@ def test_image_pull_secr_added_when_requested(create_pod_kwargs):
     processor = _create_processor({"image_pull_secret": "psrcr"})
     job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
     assert job_pod_spec.pod_spec.image_pull_secrets[0].name == "psrcr"
-
-
-def test_output_path_owned_by_job_runner_group_and_group_writable(
-    papermill_processor, create_pod_kwargs_with
-):
-    output_filename = "foo.ipynb"
-    papermill_processor.create_job_pod_spec(
-        **create_pod_kwargs_with({"output_filename": output_filename})
-    )
-
-    output_notebook = (
-        Path(OUTPUT_DIRECTORY) / datetime.date.today().isoformat() / output_filename
-    )
-    assert output_notebook.stat().st_gid == JOB_RUNNER_GROUP_ID
-
-    assert output_notebook.stat().st_mode & stat.S_IWGRP  # write group
 
 
 def test_custom_kernel_is_used_on_request(papermill_processor, create_pod_kwargs_with):

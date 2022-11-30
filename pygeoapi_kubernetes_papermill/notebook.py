@@ -121,8 +121,8 @@ PROCESS_METADATA = {
 
 
 CONTAINER_HOME = Path("/home/jovyan")
-JOVIAN_UID = "1000"
-JOVIAN_GID = "100"
+JOVIAN_UID = 1000
+JOVIAN_GID = 100
 S3_MOUNT_PATH = CONTAINER_HOME / "s3"
 # we wait for the s3 mount (couldn't think of something better than this):
 # * first mount point is emptyDir owned by root.
@@ -146,9 +146,6 @@ GIT_CHECKOUT_PATH = CONTAINER_HOME / "git" / "algorithm"
 # NOTE: this is not where we store result notebooks (job-output), but where the algorithms
 #       should store their result data
 RESULT_DATA_PATH = PurePath("/home/jovyan/result-data")
-
-# this just needs to be any unique id
-JOB_RUNNER_GROUP_ID = 20200
 
 
 @dataclass(frozen=True)
@@ -422,7 +419,6 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 share_process_namespace=True,
                 service_account=self.job_service_account,
                 security_context=k8s_client.V1PodSecurityContext(
-                    supplemental_groups=[JOB_RUNNER_GROUP_ID],
                     **({"run_as_user": self.run_as_user} if self.run_as_user else {}),
                     **(
                         {"run_as_group": self.run_as_group} if self.run_as_group else {}
@@ -605,12 +601,9 @@ def setup_output_notebook(
     # create output directory owned by root (readable, but not changeable by user)
     output_directory.mkdir(exist_ok=True, parents=True)
 
-    # create file owned by root but group is job runner group.
-    # this way we can execute the job with the jovyan user with the additional group,
-    # which the actual user (as in human) in jupyterlab does not have.
     output_notebook.touch(exist_ok=False)
     # TODO: reasonable error when output notebook already exists
-    os.chown(output_notebook, uid=0, gid=JOB_RUNNER_GROUP_ID)
+    os.chown(output_notebook, uid=JOVIAN_UID, gid=JOVIAN_GID)
     os.chmod(output_notebook, mode=0o664)
     return output_notebook
 
@@ -792,8 +785,8 @@ def git_checkout_config(
             ),
         ],
         security_context=k8s_client.V1SecurityContext(
-            run_as_user=int(JOVIAN_UID),
-            run_as_group=int(JOVIAN_GID),
+            run_as_user=JOVIAN_UID,
+            run_as_group=JOVIAN_GID,
         ),
     )
 
@@ -868,8 +861,8 @@ def s3_config(bucket_name, secret_name, s3_url) -> ExtraConfig:
                 ),
                 env=[
                     k8s_client.V1EnvVar(name="S3FS_ARGS", value="-oallow_other"),
-                    k8s_client.V1EnvVar(name="UID", value=JOVIAN_UID),
-                    k8s_client.V1EnvVar(name="GID", value=JOVIAN_GID),
+                    k8s_client.V1EnvVar(name="UID", value=str(JOVIAN_UID)),
+                    k8s_client.V1EnvVar(name="GID", value=str(JOVIAN_GID)),
                     k8s_client.V1EnvVar(
                         name="AWS_S3_ACCESS_KEY_ID",
                         value_from=k8s_client.V1EnvVarSource(
