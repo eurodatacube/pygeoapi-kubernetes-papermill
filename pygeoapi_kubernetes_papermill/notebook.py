@@ -367,6 +367,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 k8s_client.V1EnvVar(
                     name="PROGRESS_ANNOTATION", value=format_annotation_key("progress")
                 ),
+                k8s_client.V1EnvVar(name="HOME", value=str(CONTAINER_HOME)),
             ],
             env_from=extra_config.env_from,
             lifecycle=(

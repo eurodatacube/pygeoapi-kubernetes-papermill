@@ -1,3 +1,6 @@
+## 1.0.14
+* Set HOME env var to support nebari based images
+
 ## 1.0.13
 * Use jovyan user as owner of result notebook to try to avoid spurious permission denied
 
