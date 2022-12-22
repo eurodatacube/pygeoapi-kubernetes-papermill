@@ -224,7 +224,6 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         self.allow_fargate: bool = processor_def["allow_fargate"]
         self.auto_mount_secrets: bool = processor_def["auto_mount_secrets"]
         self.node_purpose_label_key: str = processor_def["node_purpose_label_key"]
-        self.custom_job_setup_script: str = processor_def["custom_job_setup_script"]
         self.run_as_user: Optional[int] = processor_def["run_as_user"]
         self.run_as_group: Optional[int] = processor_def["run_as_group"]
 
@@ -370,17 +369,6 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 k8s_client.V1EnvVar(name="HOME", value=str(CONTAINER_HOME)),
             ],
             env_from=extra_config.env_from,
-            lifecycle=(
-                k8s_client.V1Lifecycle(
-                    post_start=k8s_client.V1LifecycleHandler(
-                        _exec=k8s_client.V1ExecAction(
-                            ["/bin/sh", "-c", self.custom_job_setup_script]
-                        )
-                    )
-                )
-                if self.custom_job_setup_script
-                else None
-            ),
         )
 
         # NOTE: this link currently doesn't work (even those created in

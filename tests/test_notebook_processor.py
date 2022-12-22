@@ -81,7 +81,6 @@ def _create_processor(def_override=None) -> PapermillNotebookKubernetesProcessor
             "allow_fargate": False,
             "auto_mount_secrets": False,
             "node_purpose_label_key": "hub.example.com/node",
-            "custom_job_setup_script": None,
             "run_as_user": None,
             "run_as_group": None,
             **(def_override if def_override else {}),
