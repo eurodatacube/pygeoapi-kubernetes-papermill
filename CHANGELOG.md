@@ -1,3 +1,7 @@
+## 1.0.17
+* Version jump due to accidental chart misversioning
+* Remove custom job setup script feature
+
 ## 1.0.14
 * Set HOME env var to support nebari based images
 
