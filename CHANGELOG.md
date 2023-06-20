@@ -1,4 +1,4 @@
-## 1.0.18
+## 1.0.19
 * Add results_in_output_dir config option
 
 ## 1.0.17

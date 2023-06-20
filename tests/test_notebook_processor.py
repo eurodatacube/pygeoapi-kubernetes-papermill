@@ -572,7 +572,7 @@ def test_results_in_output_dir_creates_dir_for_run(create_pod_kwargs):
     results_dir = next(
         env.value
         for env in job_pod_spec.pod_spec.containers[0].env
-        if env.name == "RESULTS_DIR"
+        if env.name == "RESULTS_DIRECTORY"
     )
 
     assert results_dir + "/a_result.ipynb" in " ".join(
