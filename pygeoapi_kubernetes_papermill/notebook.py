@@ -184,7 +184,6 @@ class RequestParameters(TypedJsonMixin):
 
     @classmethod
     def from_dict(cls, data: dict) -> "RequestParameters":
-
         data_preprocessed: Dict[str, Any] = {
             **data,
             "notebook": PurePath(data["notebook"]),
@@ -200,7 +199,7 @@ class RequestParameters(TypedJsonMixin):
 
 
 class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
-    def __init__(self, processor_def):
+    def __init__(self, processor_def: dict) -> None:
         super().__init__(processor_def, PROCESS_METADATA)
 
         # TODO: config file parsing (typed-json-dataclass? pydantic!)
@@ -212,6 +211,9 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         self.extra_pvcs: List = processor_def["extra_pvcs"]
         self.jupyer_base_url: str = processor_def["jupyter_base_url"]
         self.base_output_directory: Path = Path(processor_def["output_directory"])
+        self.results_in_output_dir: bool = bool(
+            processor_def.get("results_in_output_dir")
+        )
         self.secrets = processor_def["secrets"]
         self.checkout_git_repo: Optional[Dict] = processor_def.get("checkout_git_repo")
         self.log_output: bool = processor_def["log_output"]
@@ -259,6 +261,8 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         output_notebook = setup_output_notebook(
             output_directory=output_directory,
             output_notebook_filename=output_filename_validated,
+            results_in_output_dir=self.results_in_output_dir,
+            input_notebook=requested.notebook,
         )
 
         if requested.run_on_fargate and not self.allow_fargate:
@@ -335,7 +339,9 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 "-c",
                 (S3_MOUNT_WAIT_CMD if self.s3 else "")
                 + (
-                    setup_results_dir_cmd(requested.result_data_directory, job_name)
+                    setup_byoa_results_dir_cmd(
+                        requested.result_data_directory, job_name
+                    )
                     if requested.result_data_directory
                     else ""
                 )
@@ -367,7 +373,16 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                     name="PROGRESS_ANNOTATION", value=format_annotation_key("progress")
                 ),
                 k8s_client.V1EnvVar(name="HOME", value=str(CONTAINER_HOME)),
-            ],
+            ]
+            + (
+                [
+                    k8s_client.V1EnvVar(
+                        name="RESULTS_DIRECTORY", value=str(output_notebook.parent)
+                    ),
+                ]
+                if self.results_in_output_dir
+                else []
+            ),
             env_from=extra_config.env_from,
         )
 
@@ -501,7 +516,6 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
 
 
 def notebook_job_output(result: JobDict) -> Tuple[Optional[str], Any]:
-
     # NOTE: this assumes that we have user home under the same path as jupyter
     notebook_path = Path(result["result-notebook"])
 
@@ -552,7 +566,6 @@ def _wait_for_result_file(notebook_path: Path) -> None:
 
 
 def serialize_single_scrap(scrap: scrapbook.scraps.Scrap) -> Tuple[Optional[str], Any]:
-
     text_mime = "text/plain"
 
     if scrap.display:
@@ -575,20 +588,34 @@ def serialize_single_scrap(scrap: scrapbook.scraps.Scrap) -> Tuple[Optional[str]
         return None, scrap.data
 
 
+def now_formatted() -> str:
+    return datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+
+
 def default_output_path(notebook_path: str, job_id: str) -> str:
-    filename_without_postfix = re.sub(".ipynb$", "", notebook_path)
-    now_formatted = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-    return filename_without_postfix + f"_result_{now_formatted}_{job_id}.ipynb"
+    filepath_without_postfix = re.sub(".ipynb$", "", notebook_path)
+    return filepath_without_postfix + f"_result_{now_formatted()}_{job_id}.ipynb"
 
 
 def setup_output_notebook(
     output_directory: Path,
     output_notebook_filename: str,
+    results_in_output_dir: bool,
+    input_notebook: PurePath,
 ) -> Path:
-    output_notebook = output_directory / output_notebook_filename
-
-    # create output directory owned by root (readable, but not changeable by user)
-    output_directory.mkdir(exist_ok=True, parents=True)
+    if results_in_output_dir:
+        results_dir = now_formatted() + "-" + input_notebook.stem
+        output_notebook_filename_in_results = (
+            input_notebook.stem + "_result" + input_notebook.suffix
+        )
+        output_notebook = (
+            output_directory / results_dir / output_notebook_filename_in_results
+        )
+        output_notebook.parent.mkdir(exist_ok=True, parents=True)
+    else:
+        output_notebook = output_directory / output_notebook_filename
+        # create output directory owned by root (readable, but not changeable by user)
+        output_directory.mkdir(exist_ok=True, parents=True)
 
     output_notebook.touch(exist_ok=False)
     # TODO: reasonable error when output notebook already exists
@@ -715,7 +742,6 @@ def extra_auto_secrets() -> ExtraConfig:
 def git_checkout_config(
     url: str, secret_name: str, git_revision: Optional[str]
 ) -> ExtraConfig:
-
     # compat for old python
     def removeprefix(self, prefix: str) -> str:
         if self.startswith(prefix):
@@ -842,7 +868,7 @@ def s3_config(bucket_name, secret_name, s3_url) -> ExtraConfig:
                     ),
                 ],
                 resources=k8s_client.V1ResourceRequirements(
-                    limits={"cpu": "0.1", "memory": "128Mi"},
+                    limits={"cpu": "0.2", "memory": "512Mi"},
                     requests={
                         "cpu": "0.05",
                         "memory": "32Mi",
@@ -886,9 +912,12 @@ def s3_config(bucket_name, secret_name, s3_url) -> ExtraConfig:
     )
 
 
-def setup_results_dir_cmd(subdir: str, job_name: str):
+def setup_byoa_results_dir_cmd(subdir: str, job_name: str):
     """Create target directory and symlink to it under fixed path, such that jobs can
-    always write to fixed path"""
+    always write to fixed path.
+    This happens on job runtime because in byoa it's not on a pvc. Also in this case,
+    the output notebook should not be included in the results.
+    """
     subdir_expanded = subdir.format(job_name=job_name)
     # make sure this is only a path, not something really malicious
     subdir_validated = PurePath(subdir_expanded)

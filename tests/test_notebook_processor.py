@@ -101,7 +101,7 @@ def papermill_gpu_processor() -> PapermillNotebookKubernetesProcessor:
 @pytest.fixture()
 def create_pod_kwargs() -> Dict:
     return {
-        "data": {"notebook": "a", "parameters": ""},
+        "data": {"notebook": "a.ipynb", "parameters": ""},
         "job_name": "my-job",
     }
 
@@ -512,7 +512,6 @@ def mock_k8s_list_auto_secrets(mock_k8s_base):
 def test_secrets_can_be_mounted_automatically(
     create_pod_kwargs, mock_k8s_list_auto_secrets
 ):
-
     processor = _create_processor({"auto_mount_secrets": True})
     job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
 
@@ -564,3 +563,18 @@ def test_node_selector_restriced_by_regex(create_pod_kwargs_with, papermill_proc
         papermill_processor.create_job_pod_spec(
             **create_pod_kwargs_with({"node_purpose": node_purpose})
         )
+
+
+def test_results_in_output_dir_creates_dir_for_run(create_pod_kwargs):
+    processor = _create_processor({"results_in_output_dir": "true"})
+    job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
+
+    results_dir = next(
+        env.value
+        for env in job_pod_spec.pod_spec.containers[0].env
+        if env.name == "RESULTS_DIR"
+    )
+
+    assert results_dir + "/a_result.ipynb" in " ".join(
+        job_pod_spec.pod_spec.containers[0].command
+    )

@@ -1,3 +1,6 @@
+## 1.0.18
+* Add results_in_output_dir config option
+
 ## 1.0.17
 * Version jump due to accidental chart misversioning
 * Remove custom job setup script feature
