@@ -228,9 +228,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         self.node_purpose_label_key: str = processor_def["node_purpose_label_key"]
         self.run_as_user: Optional[int] = processor_def["run_as_user"]
         self.run_as_group: Optional[int] = processor_def["run_as_group"]
-        self.conda_store_groups: Optional[List[str]] = processor_def.get(
-            "conda_store_groups"
-        )
+        self.conda_store_groups: List[str] = processor_def["conda_store_groups"]
 
     def create_job_pod_spec(
         self,
