@@ -192,6 +192,7 @@ def papermill_processor() -> PapermillNotebookKubernetesProcessor:
             "node_purpose_label_key": "hub.example.com/node",
             "run_as_user": None,
             "run_as_group": None,
+            "conda_store_groups": [],
         }
     )
 
