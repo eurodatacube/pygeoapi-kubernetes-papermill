@@ -1,4 +1,4 @@
-## 1.0.21
+## 1.0.23
 * Add support for conda store kernels
 
 ## 1.0.19
