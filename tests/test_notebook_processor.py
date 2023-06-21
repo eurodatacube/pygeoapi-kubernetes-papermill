@@ -578,3 +578,21 @@ def test_results_in_output_dir_creates_dir_for_run(create_pod_kwargs):
     assert results_dir + "/a_result.ipynb" in " ".join(
         job_pod_spec.pod_spec.containers[0].command
     )
+
+
+def test_conda_store_group_creates_mounts_and_setup(create_pod_kwargs):
+    processor = _create_processor(
+        {"conda_store_groups": ["eurodatacircle3", "tropictep"]}
+    )
+    job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
+
+    assert "envs_dirs: [/home/conda/eurodatacircle3/envs" in " ".join(
+        job_pod_spec.pod_spec.containers[0].command
+    )
+    assert "/home/conda/tropictep" in [
+        m.mount_path for m in job_pod_spec.pod_spec.containers[0].volume_mounts
+    ]
+
+    assert "conda-store-core-share" in [
+        v.persistent_volume_claim.claim_name for v in job_pod_spec.pod_spec.volumes
+    ]

@@ -1,3 +1,6 @@
+## 1.0.20
+* Add support for conda store kernels
+
 ## 1.0.19
 * Add results_in_output_dir config option
 

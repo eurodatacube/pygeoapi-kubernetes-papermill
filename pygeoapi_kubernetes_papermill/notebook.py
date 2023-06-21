@@ -228,6 +228,9 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         self.node_purpose_label_key: str = processor_def["node_purpose_label_key"]
         self.run_as_user: Optional[int] = processor_def["run_as_user"]
         self.run_as_group: Optional[int] = processor_def["run_as_group"]
+        self.conda_store_groups: Optional[List[str]] = processor_def.get(
+            "conda_store_groups"
+        )
 
     def create_job_pod_spec(
         self,
@@ -337,7 +340,12 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 #       setup
                 "-i",
                 "-c",
-                (S3_MOUNT_WAIT_CMD if self.s3 else "")
+                (
+                    setup_conda_store_group_cmd(self.conda_store_groups)
+                    if self.conda_store_groups
+                    else ""
+                )
+                + (S3_MOUNT_WAIT_CMD if self.s3 else "")
                 + (
                     setup_byoa_results_dir_cmd(
                         requested.result_data_directory, job_name
@@ -468,6 +476,9 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                     git_revision=git_revision,
                     **self.checkout_git_repo,
                 )
+
+            if self.conda_store_groups:
+                yield conda_store_group_volume_mounts(self.conda_store_groups)
 
         return functools.reduce(operator.add, extra_configs(), ExtraConfig())
 
@@ -927,6 +938,41 @@ def setup_byoa_results_dir_cmd(subdir: str, job_name: str):
         f'ln -sf --no-dereference "{path_to_subdir}" "{RESULT_DATA_PATH}" && '
         # NOTE: no-dereference is useful if home is a persisted mounted volume
     )
+
+
+def conda_store_group_volume_mounts(conda_store_groups: List[str]) -> ExtraConfig:
+    return ExtraConfig(
+        volumes=[
+            k8s_client.V1Volume(
+                persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
+                    claim_name="conda-store-core-share",
+                ),
+                name="conda-store",
+            )
+        ],
+        volume_mounts=[
+            k8s_client.V1VolumeMount(
+                mount_path=f"/home/conda/{group}",
+                name="conda_store",
+            )
+            for group in conda_store_groups
+        ],
+    )
+
+
+def setup_conda_store_group_cmd(conda_store_groups: List[str]) -> str:
+    """nb_conda_kernels setup for papermill:
+    https://github.com/Anaconda-Platform/nb_conda_kernels#use-with-nbconvert-voila-papermill
+    """
+    env_dirs = [f"/home/conda/{group}/envs" for group in conda_store_groups]
+    commands = (
+        f'echo "{{envs_dirs: [{", ".join(env_dirs)}]}}" > {CONTAINER_HOME}/.condarc',
+        f"mkdir -p {CONTAINER_HOME}/.jupyter",
+        'echo \'{"CondaKernelSpecManager": {"kernelspec_path": "--user"}}\' > '
+        f"{CONTAINER_HOME}/.jupyter/jupyter_config.json",
+        "python3 -m nb_conda_kernels list",
+    )
+    return "".join(f"{cmd} && " for cmd in commands)
 
 
 def drop_none_values(d: Dict) -> Dict:
