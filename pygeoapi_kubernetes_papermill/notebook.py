@@ -951,7 +951,7 @@ def conda_store_group_volume_mounts(conda_store_groups: List[str]) -> ExtraConfi
         volume_mounts=[
             k8s_client.V1VolumeMount(
                 mount_path=f"/home/conda/{group}",
-                name="conda_store",
+                name="conda-store",
             )
             for group in conda_store_groups
         ],
