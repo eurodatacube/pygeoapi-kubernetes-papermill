@@ -39,7 +39,7 @@ jobs:
       - name: test and push
         run: |
           IMG="eurodatacube/pygeoapi-eoxhub:${{ steps.get_image_tag.outputs.TAG }}"
-          docker run --env PYGEOAPI_CONFIG=/pkp/tests/pygeoapi-test-config.yaml --entrypoint pytest "${IMG}" || exit 1
+          docker run --env PYGEOAPI_CONFIG=/pkp/tests/pygeoapi-test-config.yaml --entrypoint python3 "${IMG}" -m pytest || exit 1
           docker run --entrypoint flake8 "${IMG}" pygeoapi_kubernetes_papermill tests || exit 1
           docker run --entrypoint mypy "${IMG}" pygeoapi_kubernetes_papermill tests || exit 1
           docker push "${IMG}"
