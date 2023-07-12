@@ -77,46 +77,19 @@ PROCESS_METADATA = {
             "hreflang": "en-US",
         }
     ],
-    "inputs": [
-        {
-            "id": "notebook",
+    "inputs": {
+        "notebook": {
             "title": "notebook file (path relative to home)",
-            "abstract": "notebook file",
-            "input": {
-                "literalDataDomain": {
-                    "dataType": "string",
-                    "valueDefinition": {"anyValue": True},
-                }
+            "schema": {
+                "type": "string",
             },
             "minOccurs": 1,
             "maxOccurs": 1,
             "metadata": None,  # TODO how to use?
             "keywords": [""],
         },
-        {
-            "id": "parameters",
-            "title": "parameters (base64 encoded yaml)",
-            "abstract": "parameters for notebook execution.",
-            "input": {
-                "literalDataDomain": {
-                    "dataType": "string",
-                    "valueDefinition": {"anyValue": True},
-                }
-            },
-            "minOccurs": 0,
-            "maxOccurs": 1,
-            "metadata": None,
-            "keywords": [""],
-        },
-    ],
-    "outputs": [
-        {
-            "id": "result_link",
-            "title": "Link to result notebook",
-            "description": "Link to result notebook",
-            "output": {"formats": [{"mimeType": "text/plain"}]},
-        }
-    ],
+    },
+    "outputs": {},
     "example": {},
     "jobControlOptions": [
         ProcessExecutionMode.async_execute.value,
@@ -958,7 +931,7 @@ def conda_store_group_volume_mounts(conda_store_groups: List[str]) -> ExtraConfi
                 mount_path=f"/home/conda/{group}",
                 name="conda-store",
                 read_only=True,
-                sub_path=group
+                sub_path=group,
             )
             for group in conda_store_groups
         ],
