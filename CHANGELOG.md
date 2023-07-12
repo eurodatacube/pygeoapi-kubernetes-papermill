@@ -1,3 +1,6 @@
+## 1.1.0
+* Update to pygeoapi 0.15.0
+
 ## 1.0.23
 * Add support for conda store kernels
 
