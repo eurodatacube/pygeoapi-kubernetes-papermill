@@ -111,11 +111,10 @@ class KubernetesManager(BaseManager):
         self.batch_v1 = k8s_client.BatchV1Api()
         self.core_api = k8s_client.CoreV1Api()
 
-    def get_jobs(self, processid=None, status=None) -> List[JobDict]:
+    def get_jobs(self, status=None) -> List[JobDict]:
         """
         Get process jobs, optionally filtered by status
 
-        :param process_id: process identifier
         :param status: job status (accepted, running, successful,
                        failed, results) (default is all)
 
@@ -125,7 +124,7 @@ class KubernetesManager(BaseManager):
         k8s_jobs: k8s_client.V1JobList = self.batch_v1.list_namespaced_job(
             namespace=self.namespace,
         )
-        # TODO: implement process / status filter
+        # TODO: implement status filter
 
         return [
             job_from_k8s(k8s_job, self._job_message(k8s_job))
@@ -133,11 +132,10 @@ class KubernetesManager(BaseManager):
             if is_k8s_job_name(k8s_job.metadata.name)
         ]
 
-    def get_job(self, process_id, job_id) -> Optional[JobDict]:
+    def get_job(self, job_id) -> Optional[JobDict]:
         """
         Returns the actual output from a completed process
 
-        :param process_id: process identifier
         :param job_id: job identifier
 
         :returns: `dict`  # `pygeoapi.process.manager.Job`
@@ -179,11 +177,10 @@ class KubernetesManager(BaseManager):
         # we could update the metadata by changing the job annotations
         raise NotImplementedError("Currently there's no use case for updating k8s jobs")
 
-    def get_job_result(self, process_id, job_id) -> Tuple[Optional[Any], Optional[str]]:
+    def get_job_result(self, job_id) -> Tuple[Optional[Any], Optional[str]]:
         """
         Returns the actual output from a completed process
 
-        :param process_id: process identifier
         :param job_id: job identifier
 
         :returns: `tuple` of mimetype and raw output
@@ -193,14 +190,14 @@ class KubernetesManager(BaseManager):
         # avoid import loop
         from .notebook import notebook_job_output
 
-        job = self.get_job(process_id=process_id, job_id=job_id)
+        job = self.get_job(job_id=job_id)
 
         if job is None or (JobStatus[job["status"]]) != JobStatus.successful:
             return (None, None)
         else:
             return notebook_job_output(job)
 
-    def delete_job(self, process_id, job_id):
+    def delete_job(self, job_id):
         """
         Deletes a job
 
@@ -268,12 +265,10 @@ class KubernetesManager(BaseManager):
         """
         self._execute_handler_async(p=p, job_id=job_id, data_dict=data_dict)
 
-        process_id = p.metadata["id"]
-
         while True:
             # TODO: investigate if list_namespaced_job(watch=True) can be used here
             time.sleep(2)
-            job = self.get_job(process_id=process_id, job_id=job_id)
+            job = self.get_job(job_id=job_id)
             if not job:
                 LOGGER.warning(f"Job {job_id} has vanished")
                 status = JobStatus.failed
@@ -283,7 +278,7 @@ class KubernetesManager(BaseManager):
             if status not in (JobStatus.running, JobStatus.accepted):
                 break
 
-        mimetype, result = self.get_job_result(process_id=process_id, job_id=job_id)
+        mimetype, result = self.get_job_result(job_id=job_id)
 
         return (mimetype, result, status)
 
