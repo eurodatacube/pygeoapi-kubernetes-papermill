@@ -308,6 +308,7 @@ class KubernetesManager(BaseManager):
 
         annotations = {
             "identifier": job_id,
+            "process_id": p.metadata.get("id"),
             "job_start_datetime": datetime.utcnow().strftime(DATETIME_FORMAT),
             **job_pod_spec.extra_annotations,
         }
@@ -436,6 +437,7 @@ def job_from_k8s(job: k8s_client.V1Job, message: Optional[str]) -> JobDict:
         {
             # need this key in order not to crash, overridden by metadata:
             "identifier": "",
+            "process_id": "",
             "job_start_datetime": "",
             # NOTE: this is passed as string as compatibility with base manager
             "status": status.value,
