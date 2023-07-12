@@ -1,11 +1,11 @@
-# TODO: remove patch for job_id after next image update, it's upstream now
-FROM geopython/pygeoapi:0.10.1
+FROM geopython/pygeoapi:0.15.0
+
+RUN apt update \
+  && apt --no-install-recommends -y install patch vim-tiny
 
 # Add minor patch to set async as default behavior
 COPY async-as-default.patch allow-specifying-job_id-via-request-parameter.patch ./
-RUN apt update \
-  && apt --no-install-recommends -y install patch vim-tiny \
-  && patch -p0 < async-as-default.patch \
+RUN patch -p0 < async-as-default.patch \
   && patch -p0 < allow-specifying-job_id-via-request-parameter.patch
 
 RUN mkdir /pkp
