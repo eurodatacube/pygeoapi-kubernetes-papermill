@@ -1,25 +1,27 @@
-From 5be956455faf93b404ca0b4f2fbdb31c11c7187a Mon Sep 17 00:00:00 2001
+From 59b8c2059079c76991404938865cb1be77e24dbd Mon Sep 17 00:00:00 2001
 From: Bernhard Mallinger <bernhard.mallinger@eox.at>
-Date: Thu, 7 Jan 2021 12:33:28 +0100
+Date: Wed, 12 Jul 2023 10:57:25 +0200
 Subject: [PATCH] Set async as default
 
+Apparently sync is default for ogc api processes, but
+this doesn't make sense for our use case
 ---
  pygeoapi/api.py | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git pygeoapi/api.py pygeoapi/api.py
-index 09280b2..0f06bec 100644
+index e020237..e0919e7 100644
 --- pygeoapi/api.py
 +++ pygeoapi/api.py
-@@ -2169,7 +2169,7 @@ tiles/{{{}}}/{{{}}}/{{{}}}/{{{}}}?f=mvt'
-         headers_['Location'] = url
- 
-         outputs = status = None
--        is_async = data.get('mode', 'auto') == 'async'
-+        is_async = data.get('mode', 'auto') != 'sync'
- 
-         if is_async:
-             LOGGER.debug('Asynchronous request mode detected')
+@@ -3555,7 +3555,7 @@ class API:
+                 request.headers.get('Prefer', request.headers.get('prefer'))
+             )
+         except ValueError:
+-            execution_mode = None
++            execution_mode = RequestedProcessExecutionMode.respond_async
+         try:
+             LOGGER.debug('Executing process')
+             result = self.manager.execute_process(
 -- 
-2.25.1
+2.34.1
 

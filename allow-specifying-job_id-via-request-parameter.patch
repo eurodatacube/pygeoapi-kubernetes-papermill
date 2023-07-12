@@ -1,6 +1,6 @@
-From c109cfea3600460bcc46edce73ceb2a56b5f0490 Mon Sep 17 00:00:00 2001
+From bbe79a8f16674f23cb43dd7a0f05dfb53896ff9d Mon Sep 17 00:00:00 2001
 From: Bernhard Mallinger <bernhard.mallinger@eox.at>
-Date: Thu, 8 Apr 2021 12:47:22 +0200
+Date: Wed, 12 Jul 2023 10:45:55 +0200
 Subject: [PATCH] Allow specifying `job_id` via request parameter
 
 This is somewhat unconventional with REST design and leaves it up to the
@@ -14,22 +14,54 @@ so I'd prefer to pass the id via POST data. This way we can treat it as
 suggestion, or possibly as a template from which the server derives the
 actual id.
 ---
- pygeoapi/api.py | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ pygeoapi/api.py                  | 3 ++-
+ pygeoapi/process/manager/base.py | 5 +++--
+ 2 files changed, 5 insertions(+), 3 deletions(-)
 
 diff --git pygeoapi/api.py pygeoapi/api.py
-index 84552b1..d384809 100644
+index 92ba518..9720eb4 100644
 --- pygeoapi/api.py
 +++ pygeoapi/api.py
-@@ -2000,7 +2000,7 @@ tiles/{{{}}}/{{{}}}/{{{}}}/{{{}}}?f=mvt'
-         else:
-             LOGGER.debug(data_dict)
+@@ -3545,6 +3545,7 @@ class API:
+ 
+         data_dict = data.get('inputs', {})
+         LOGGER.debug(data_dict)
++        desired_job_id = data.get("job_id")
+ 
+         try:
+             execution_mode = RequestedProcessExecutionMode(
+@@ -3554,7 +3555,7 @@ class API:
+         try:
+             LOGGER.debug('Executing process')
+             result = self.manager.execute_process(
+-                process, data_dict, execution_mode=execution_mode)
++                process, data_dict, execution_mode=execution_mode, desired_job_id=desired_job_id)
+             job_id, mime_type, outputs, status, additional_headers = result
+             headers.update(additional_headers or {})
+             headers['Location'] = f'{self.base_url}/jobs/{job_id}'
+diff --git pygeoapi/process/manager/base.py pygeoapi/process/manager/base.py
+index 072ff7c..e64fd3e 100644
+--- pygeoapi/process/manager/base.py
++++ pygeoapi/process/manager/base.py
+@@ -269,7 +269,8 @@ class BaseManager:
+             self,
+             p: BaseProcessor,
+             data_dict: dict,
+-            execution_mode: Optional[RequestedProcessExecutionMode] = None
++            execution_mode: Optional[RequestedProcessExecutionMode] = None,
++            desired_job_id: str | None = None
+     ) -> Tuple[str, Any, JobStatus, Optional[Dict[str, str]]]:
+         """
+         Default process execution handler
+@@ -284,7 +285,7 @@ class BaseManager:
+                   response
+         """
  
 -        job_id = str(uuid.uuid1())
-+        job_id = data.get("job_id", str(uuid.uuid1()))
-         url = '{}/processes/{}/jobs/{}'.format(
-             self.config['server']['url'], process_id, job_id)
- 
++        job_id = desired_job_id or str(uuid.uuid1())
+         if execution_mode == RequestedProcessExecutionMode.respond_async:
+             # client wants async - do we support it?
+             process_supports_async = (
 -- 
-2.25.1
+2.34.1
 
