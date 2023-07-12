@@ -27,7 +27,7 @@
 #
 # =================================================================
 
-from pygeoapi.util import JobStatus
+from pygeoapi.util import JobStatus, RequestedProcessExecutionMode
 import json
 import pytest
 from unittest import mock
@@ -205,11 +205,17 @@ def test_execute_process_starts_async_job(
     job_id = "abc"
     result = manager.execute_process(
         p=papermill_processor,
-        job_id=job_id,
+        desired_job_id=job_id,
         data_dict={"notebook": "a.ipynb"},
-        is_async=True,
+        execution_mode=RequestedProcessExecutionMode.respond_async,
     )
-    assert result == (None, None, JobStatus.accepted)
+    assert result == (
+        "abc",
+        None,
+        None,
+        JobStatus.accepted,
+        {"Preference-Applied": "respond-async"},
+    )
 
     job: k8s_client.V1Job = mock_create_job.mock_calls[0][2]["body"]
     assert job_id in job.metadata.name
@@ -237,13 +243,14 @@ def test_execute_process_sync_also_returns_mime_type(
     mock_wait_for_result_file,
 ):
     job_id = "abc"
-    mime, payload, status = manager.execute_process(
+    actual_job_id, mime, payload, status, headers = manager.execute_process(
         p=papermill_processor,
-        job_id=job_id,
+        desired_job_id=job_id,
         data_dict={"notebook": "a.ipynb"},
-        is_async=False,
+        execution_mode=RequestedProcessExecutionMode.wait,
     )
 
+    assert actual_job_id == job_id
     assert mime is None
     assert payload == {"result-link": "https://www.example.com"}
     assert status == JobStatus.successful

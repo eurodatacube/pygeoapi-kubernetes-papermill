@@ -1,5 +1,5 @@
 test: build
-	docker run --env PYGEOAPI_CONFIG=/pkp/tests/pygeoapi-test-config.yaml --entrypoint pytest pkp:1
+	docker run --env PYGEOAPI_CONFIG=/pkp/tests/pygeoapi-test-config.yaml --entrypoint python3 pkp:1 -m pytest
 	docker run --entrypoint flake8 pkp:1 pygeoapi_kubernetes_papermill tests
 	docker run --entrypoint mypy pkp:1 pygeoapi_kubernetes_papermill tests
 

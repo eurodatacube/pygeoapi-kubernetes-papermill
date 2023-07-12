@@ -40,6 +40,7 @@ import os
 import re
 import time
 from pygeoapi.process.base import ProcessorExecuteError
+from pygeoapi.util import ProcessExecutionMode
 import scrapbook
 import scrapbook.scraps
 from typing import Dict, Iterable, Optional, List, Tuple, Any
@@ -117,6 +118,10 @@ PROCESS_METADATA = {
         }
     ],
     "example": {},
+    "jobControlOptions": [
+        ProcessExecutionMode.async_execute.value,
+        ProcessExecutionMode.sync_execute.value,
+    ],
 }
 
 
