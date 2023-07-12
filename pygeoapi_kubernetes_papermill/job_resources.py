@@ -73,7 +73,7 @@ def get_job_resources(process_id, job_id):
     # for cpu, we can just take the total
     query_cpu = f"container_cpu_usage_seconds_total{{ {metrics_selector} }}"
 
-    job: JobDict = api_.manager.get_job(process_id=process_id, job_id=job_id)
+    job: JobDict = api_.manager.get_job(job_id=job_id)
 
     if job["status"] != JobStatus.successful.value:
         return (f"Job is {job['status']}", 400)

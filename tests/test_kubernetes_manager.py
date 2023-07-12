@@ -160,7 +160,7 @@ def test_deleting_job_deletes_in_k8s_and_on_nb_file_on_disc(
     with mock.patch(
         "pygeoapi_kubernetes_papermill.kubernetes.os.remove"
     ) as mock_os_remove:
-        result = manager.delete_job(1, 2)
+        result = manager.delete_job(2)
 
     assert result
     mock_delete_job.assert_called_once()
@@ -211,8 +211,8 @@ def test_execute_process_starts_async_job(
     )
     assert result == (
         "abc",
-        None,
-        None,
+        "application/json",
+        {},
         JobStatus.accepted,
         {"Preference-Applied": "respond-async"},
     )

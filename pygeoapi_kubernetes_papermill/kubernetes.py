@@ -284,7 +284,7 @@ class KubernetesManager(BaseManager):
 
     def _execute_handler_async(
         self, p: KubernetesProcessor, job_id, data_dict
-    ) -> Tuple[None, None, JobStatus]:
+    ) -> Tuple[str, dict, JobStatus]:
         """
         In practise k8s jobs are always async.
 
