@@ -336,7 +336,7 @@ class KubernetesManager(BaseManager):
 
         LOGGER.info("Add job %s in ns %s", job.metadata.name, self.namespace)
 
-        return (None, None, JobStatus.accepted)
+        return ("application/json", {}, JobStatus.accepted)
 
     def _job_message(self, job: k8s_client.V1Job) -> Optional[str]:
 
