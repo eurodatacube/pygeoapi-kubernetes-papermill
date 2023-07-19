@@ -385,15 +385,15 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         # json is much cheaper to parse, and we accept both b64-yaml and
         # json as input, so save as json
         parameters_str = b64decode(requested.parameters.encode()).decode()
-        parameters_as_json = (
-            json.dumps(yaml.safe_load(parameters_str)) if requested.parameters else ""
-        )
-        # save parameters but make sure the string is not too long
         extra_annotations = {
-            "parameters": parameters_as_json[:8000],
             "result-link": result_link,
             "result-notebook": str(output_notebook),
-        }
+        } | (
+            # save parameters but make sure the string is not too long
+            {"parameters": json.dumps(yaml.safe_load(parameters_str))[:8000]}
+            if requested.parameters
+            else {}
+        )
 
         return KubernetesProcessor.JobPodSpec(
             pod_spec=k8s_client.V1PodSpec(
