@@ -597,3 +597,17 @@ def test_conda_store_group_creates_mounts_and_setup(create_pod_kwargs):
     assert "conda-store-core-share" in [
         v.persistent_volume_claim.claim_name for v in job_pod_spec.pod_spec.volumes
     ]
+
+
+def test_custom_output_dirname_is_added_to_command(
+    papermill_processor, create_pod_kwargs_with
+):
+    output_path = "foo/bar.ipynb"
+    dirname = "mydir"
+    job_pod_spec = papermill_processor.create_job_pod_spec(
+        **create_pod_kwargs_with(
+            {"output_filename": output_path, "output_dirname": dirname}
+        )
+    )
+
+    assert f"{dirname}/bar.ipynb" in str(job_pod_spec.pod_spec.containers[0].command)

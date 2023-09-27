@@ -149,6 +149,7 @@ class RequestParameters(TypedJsonMixin):
     notebook: PurePath
     kernel: Optional[str] = None
     image: Optional[str] = None
+    output_dirname: Optional[str] = None
     output_filename: Optional[str] = None
     parameters: str = ""
     cpu_limit: Optional[str] = None
@@ -236,7 +237,16 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 job_id=job_id_from_job_name(job_name),
             )
         ).name
-        output_directory = self.base_output_directory / date.today().isoformat()
+        output_dirname_validated = (
+            PurePath(requested.output_dirname).name
+            if requested.output_dirname
+            else None
+        )
+        output_directory = (
+            self.base_output_directory
+            / date.today().isoformat()
+            / (output_dirname_validated if output_dirname_validated else ".")
+        )
         output_notebook = setup_output_notebook(
             output_directory=output_directory,
             output_notebook_filename=output_filename_validated,
