@@ -1,3 +1,6 @@
+## 1.1.4
+* Add `output_dirname` parameter
+
 ## 1.1.0, 1.1.1, 1.1.2, 1.1.3
 * Update to pygeoapi 0.15.0
 
