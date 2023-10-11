@@ -1,3 +1,10 @@
+## 1.1.6
+* Remove unused job_resources view
+
+## 1.1.5
+* Use more recent pygeoapi version
+* Improve error handling on missing job id
+
 ## 1.1.4
 * Add `output_dirname` parameter
 
