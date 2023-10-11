@@ -1,4 +1,4 @@
-From bbe79a8f16674f23cb43dd7a0f05dfb53896ff9d Mon Sep 17 00:00:00 2001
+From 8670cc0997b376a3afcfdc157fbb13d1d81f7be8 Mon Sep 17 00:00:00 2001
 From: Bernhard Mallinger <bernhard.mallinger@eox.at>
 Date: Wed, 12 Jul 2023 10:45:55 +0200
 Subject: [PATCH] Allow specifying `job_id` via request parameter
@@ -19,10 +19,10 @@ actual id.
  2 files changed, 5 insertions(+), 3 deletions(-)
 
 diff --git pygeoapi/api.py pygeoapi/api.py
-index 92ba518..9720eb4 100644
+index e388275..b5449fa 100644
 --- pygeoapi/api.py
 +++ pygeoapi/api.py
-@@ -3545,6 +3545,7 @@ class API:
+@@ -3552,6 +3552,7 @@ class API:
  
          data_dict = data.get('inputs', {})
          LOGGER.debug(data_dict)
@@ -30,22 +30,22 @@ index 92ba518..9720eb4 100644
  
          try:
              execution_mode = RequestedProcessExecutionMode(
-@@ -3554,7 +3555,7 @@ class API:
+@@ -3562,7 +3563,7 @@ class API:
          try:
              LOGGER.debug('Executing process')
              result = self.manager.execute_process(
--                process, data_dict, execution_mode=execution_mode)
-+                process, data_dict, execution_mode=execution_mode, desired_job_id=desired_job_id)
+-                process_id, data_dict, execution_mode=execution_mode)
++                process_id, data_dict, execution_mode=execution_mode, desired_job_id=desired_job_id)
              job_id, mime_type, outputs, status, additional_headers = result
              headers.update(additional_headers or {})
              headers['Location'] = f'{self.base_url}/jobs/{job_id}'
 diff --git pygeoapi/process/manager/base.py pygeoapi/process/manager/base.py
-index 072ff7c..e64fd3e 100644
+index d0d7824..0f6d35a 100644
 --- pygeoapi/process/manager/base.py
 +++ pygeoapi/process/manager/base.py
-@@ -269,7 +269,8 @@ class BaseManager:
+@@ -312,7 +312,8 @@ class BaseManager:
              self,
-             p: BaseProcessor,
+             process_id: str,
              data_dict: dict,
 -            execution_mode: Optional[RequestedProcessExecutionMode] = None
 +            execution_mode: Optional[RequestedProcessExecutionMode] = None,
@@ -53,15 +53,15 @@ index 072ff7c..e64fd3e 100644
      ) -> Tuple[str, Any, JobStatus, Optional[Dict[str, str]]]:
          """
          Default process execution handler
-@@ -284,7 +285,7 @@ class BaseManager:
+@@ -329,7 +330,7 @@ class BaseManager:
                    response
          """
  
 -        job_id = str(uuid.uuid1())
 +        job_id = desired_job_id or str(uuid.uuid1())
+         processor = self.get_processor(process_id)
          if execution_mode == RequestedProcessExecutionMode.respond_async:
-             # client wants async - do we support it?
-             process_supports_async = (
+             job_control_options = processor.metadata.get(
 -- 
 2.34.1
 

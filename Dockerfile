@@ -1,4 +1,4 @@
-FROM geopython/pygeoapi:0.15.0
+FROM docker.io/eurodatacube/pygeoapi:latest-20231004
 
 RUN apt update \
   && apt --no-install-recommends -y install patch vim-tiny
@@ -11,9 +11,9 @@ COPY async-as-default.patch \
     ./
 
 RUN patch -p0 < async-as-default.patch \
-  && patch -p0 < allow-specifying-job_id-via-request-parameter.patch \
-  && patch -p0 < add-support-for-pre-0.11-style-parameter-passing.patch \
-  && patch -p0 < support-old-jobs-endpoint.patch
+    && patch -p0 < allow-specifying-job_id-via-request-parameter.patch \
+    && patch -p0 < add-support-for-pre-0.11-style-parameter-passing.patch \
+    && patch -p0 < support-old-jobs-endpoint.patch
 
 RUN mkdir /pkp
 WORKDIR /pkp

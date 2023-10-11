@@ -1,4 +1,4 @@
-From b4598802338019319df5c6a18422a0d8f785cf3c Mon Sep 17 00:00:00 2001
+From 6331adfc70d6bd670cceb89384a9513f2e3ba61e Mon Sep 17 00:00:00 2001
 From: Bernhard Mallinger <bernhard.mallinger@eox.at>
 Date: Wed, 12 Jul 2023 13:24:03 +0200
 Subject: [PATCH] Support old jobs endpoint
@@ -8,15 +8,15 @@ Subject: [PATCH] Support old jobs endpoint
  1 file changed, 1 insertion(+)
 
 diff --git pygeoapi/flask_app.py pygeoapi/flask_app.py
-index 74be94d..c0196bf 100644
+index ab2e497..8c6c0f8 100644
 --- pygeoapi/flask_app.py
 +++ pygeoapi/flask_app.py
 @@ -375,6 +375,7 @@ def get_jobs(job_id=None):
              return get_response(api_.get_jobs(request, job_id))
  
  
-+@BLUEPRINT.route('/processes/<path:process_id>/jobs', methods=['POST'])
- @BLUEPRINT.route('/processes/<path:process_id>/execution', methods=['POST'])
++@BLUEPRINT.route('/processes/<process_id>/jobs', methods=['POST'])
+ @BLUEPRINT.route('/processes/<process_id>/execution', methods=['POST'])
  def execute_process_jobs(process_id):
      """
 -- 

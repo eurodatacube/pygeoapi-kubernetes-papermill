@@ -146,8 +146,10 @@ def mock_wait_for_result_file():
 
 
 @pytest.fixture()
-def manager(mock_k8s_base) -> KubernetesManager:
-    return KubernetesManager({"name": "kman"})
+def manager(mock_k8s_base, papermill_processor) -> KubernetesManager:
+    man = KubernetesManager({"name": "kman"})
+    man.get_processor = lambda *args, **kwargs: papermill_processor
+    return man
 
 
 def test_deleting_job_deletes_in_k8s_and_on_nb_file_on_disc(
@@ -199,12 +201,11 @@ def papermill_processor() -> PapermillNotebookKubernetesProcessor:
 
 def test_execute_process_starts_async_job(
     manager: KubernetesManager,
-    papermill_processor,
     mock_create_job,
 ):
     job_id = "abc"
     result = manager.execute_process(
-        p=papermill_processor,
+        process_id='papermill-processor',
         desired_job_id=job_id,
         data_dict={"notebook": "a.ipynb"},
         execution_mode=RequestedProcessExecutionMode.respond_async,
@@ -244,7 +245,7 @@ def test_execute_process_sync_also_returns_mime_type(
 ):
     job_id = "abc"
     actual_job_id, mime, payload, status, headers = manager.execute_process(
-        p=papermill_processor,
+        process_id="papermill-processor",
         desired_job_id=job_id,
         data_dict={"notebook": "a.ipynb"},
         execution_mode=RequestedProcessExecutionMode.wait,
