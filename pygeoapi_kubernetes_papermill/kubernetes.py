@@ -43,7 +43,11 @@ from kubernetes import client as k8s_client, config as k8s_config
 import kubernetes.client.rest
 
 from pygeoapi.util import JobStatus
-from pygeoapi.process.base import BaseProcessor
+from pygeoapi.process.base import (
+    BaseProcessor,
+    JobNotFoundError,
+    JobResultNotFoundError,
+)
 from pygeoapi.process.manager.base import BaseManager, DATETIME_FORMAT
 
 from .common import is_k8s_job_name, k8s_job_name
@@ -149,7 +153,7 @@ class KubernetesManager(BaseManager):
             return job_from_k8s(k8s_job, self._job_message(k8s_job))
         except kubernetes.client.rest.ApiException as e:
             if e.status == HTTPStatus.NOT_FOUND:
-                return None
+                raise JobNotFoundError
             else:
                 raise
 
@@ -193,7 +197,7 @@ class KubernetesManager(BaseManager):
         job = self.get_job(job_id=job_id)
 
         if job is None or (JobStatus[job["status"]]) != JobStatus.successful:
-            return (None, None)
+            raise JobResultNotFoundError
         else:
             return notebook_job_output(job)
 
