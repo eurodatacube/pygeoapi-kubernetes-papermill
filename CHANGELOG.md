@@ -1,3 +1,6 @@
+## 1.1.7
+* Remove result-link feature
+
 ## 1.1.6
 * Remove unused job_resources view
 

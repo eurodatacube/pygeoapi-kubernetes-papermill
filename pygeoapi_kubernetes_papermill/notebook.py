@@ -45,7 +45,6 @@ import scrapbook
 import scrapbook.scraps
 from typing import Dict, Iterable, Optional, List, Tuple, Any
 from typed_json_dataclass import TypedJsonMixin
-import urllib.parse
 import yaml
 
 from kubernetes import client as k8s_client
@@ -79,7 +78,7 @@ PROCESS_METADATA = {
     ],
     "inputs": {
         "notebook": {
-            "title": "notebook file (path relative to home)",
+            "title": "notebook file",
             "schema": {
                 "type": "string",
             },
@@ -379,24 +378,10 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             ),
             env_from=extra_config.env_from,
         )
-
-        # NOTE: this link currently doesn't work (even those created in
-        #   the ui with "create sharable link" don't)
-        #   there is a recently closed issue about it:
-        # https://github.com/jupyterlab/jupyterlab/issues/8359
-        #   it doesn't say when it was fixed exactly. there's a possibly
-        #   related fix from last year:
-        # https://github.com/jupyterlab/jupyterlab/pull/6773
-        result_link = (
-            f"{self.jupyer_base_url}/hub/user-redirect/lab/tree/"
-            + urllib.parse.quote(str(output_notebook.relative_to(CONTAINER_HOME)))
-        )
-
         # json is much cheaper to parse, and we accept both b64-yaml and
         # json as input, so save as json
         parameters_str = b64decode(requested.parameters.encode()).decode()
         extra_annotations = {
-            "result-link": result_link,
             "result-notebook": str(output_notebook),
         } | (
             # save parameters but make sure the string is not too long
@@ -522,7 +507,7 @@ def notebook_job_output(result: JobDict) -> Tuple[Optional[str], Any]:
     LOGGER.debug("Retrieved scraps from notebook: %s", scraps)
 
     if not scraps:
-        return (None, {"result-link": result["result-link"]})
+        return (None, {})
     elif result_file_scrap := scraps.get("result-file"):
         # if available, prefer file output
         specified_path = Path(result_file_scrap.data)

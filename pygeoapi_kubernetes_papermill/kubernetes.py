@@ -85,7 +85,6 @@ JobDict = TypedDict(
     "JobDict",
     {
         "status": str,
-        "result-link": str,
         "result-notebook": str,
         "message": str,
         "job_end_datetime": Optional[str],
@@ -201,7 +200,7 @@ class KubernetesManager(BaseManager):
         else:
             return notebook_job_output(job)
 
-    def delete_job(self, job_id):
+    def delete_job(self, job_id) -> bool:
         """
         Deletes a job
 
@@ -338,7 +337,6 @@ class KubernetesManager(BaseManager):
         return ("application/json", {}, JobStatus.accepted)
 
     def _job_message(self, job: k8s_client.V1Job) -> Optional[str]:
-
         if job_status_from_k8s(job.status) == JobStatus.accepted:
             # if a job is in state accepted, it means that it can run right now
             # and we the events can show why that is

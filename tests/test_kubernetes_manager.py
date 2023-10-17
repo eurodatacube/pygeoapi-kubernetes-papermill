@@ -205,7 +205,7 @@ def test_execute_process_starts_async_job(
 ):
     job_id = "abc"
     result = manager.execute_process(
-        process_id='papermill-processor',
+        process_id="papermill-processor",
         desired_job_id=job_id,
         data_dict={"notebook": "a.ipynb"},
         execution_mode=RequestedProcessExecutionMode.respond_async,
@@ -253,7 +253,7 @@ def test_execute_process_sync_also_returns_mime_type(
 
     assert actual_job_id == job_id
     assert mime is None
-    assert payload == {"result-link": "https://www.example.com"}
+    assert payload == {}
     assert status == JobStatus.successful
 
 

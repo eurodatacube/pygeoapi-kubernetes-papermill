@@ -38,7 +38,9 @@ from unittest import mock
 
 @pytest.fixture()
 def mock_k8s_base():
-    with mock.patch("pygeoapi_kubernetes_papermill.kubernetes.k8s_config",), mock.patch(
+    with mock.patch(
+        "pygeoapi_kubernetes_papermill.kubernetes.k8s_config",
+    ), mock.patch(
         "pygeoapi_kubernetes_papermill.kubernetes.current_namespace"
     ), mock.patch(
         "pygeoapi_kubernetes_papermill.notebook.current_namespace",
@@ -59,7 +61,6 @@ def k8s_job() -> k8s_client.V1Job:
             name=k8s_job_name("test"),
             annotations={
                 "pygeoapi.io/result-notebook": "/a/b/a.ipynb",
-                "pygeoapi.io/result-link": "https://www.example.com",
             },
         ),
         status=k8s_client.V1JobStatus(

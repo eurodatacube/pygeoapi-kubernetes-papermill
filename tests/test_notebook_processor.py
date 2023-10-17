@@ -353,7 +353,6 @@ def generate_scrap_notebook(tmp_path):
 def job_dict() -> JobDict:
     return {
         "status": "successful",
-        "result-link": "https://example.com",
         "result-notebook": "a.ipynb",
     }
 
