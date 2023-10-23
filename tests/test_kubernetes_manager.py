@@ -179,6 +179,8 @@ def papermill_processor() -> PapermillNotebookKubernetesProcessor:
             "default_image": "example",
             "allowed_images_regex": "",
             "extra_pvcs": [],
+            "extra_volumes": [],
+            "extra_volume_mounts": [],
             "home_volume_claim_name": "user",
             "image_pull_secret": "",
             "jupyter_base_url": "",

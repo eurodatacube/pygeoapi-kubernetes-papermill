@@ -68,6 +68,8 @@ def _create_processor(def_override=None) -> PapermillNotebookKubernetesProcessor
             "default_image": "example",
             "allowed_images_regex": "",
             "extra_pvcs": [],
+            "extra_volumes": [],
+            "extra_volume_mounts": [],
             "home_volume_claim_name": "user",
             "image_pull_secret": "",
             "jupyter_base_url": "",
@@ -610,3 +612,33 @@ def test_custom_output_dirname_is_added_to_command(
     )
 
     assert f"{dirname}/bar.ipynb" in str(job_pod_spec.pod_spec.containers[0].command)
+
+
+def test_extra_volumes_are_added_on_request(create_pod_kwargs):
+    processor = _create_processor(
+        {
+            "extra_volumes": [
+                {
+                    "name": "sharedVolume",
+                    "persistentVolumeClaim": {"claimName": "myClaimName"},
+                }
+            ],
+            "extra_volume_mounts": [
+                {
+                    "name": "sharedMount",
+                    "mountPath": "/mnt/my",
+                    "subPath": "eurodatacube",
+                }
+            ],
+        }
+    )
+    job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
+
+    assert "myClaimName" in [
+        v.persistent_volume_claim.claim_name
+        for v in job_pod_spec.pod_spec.volumes
+        if v.persistent_volume_claim
+    ]
+    assert "/mnt/my" in [
+        m.mount_path for m in job_pod_spec.pod_spec.containers[0].volume_mounts
+    ]

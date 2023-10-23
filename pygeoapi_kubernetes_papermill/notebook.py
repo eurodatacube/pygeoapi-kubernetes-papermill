@@ -187,6 +187,8 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         self.s3: Optional[Dict[str, str]] = processor_def.get("s3")
         self.home_volume_claim_name: str = processor_def["home_volume_claim_name"]
         self.extra_pvcs: List = processor_def["extra_pvcs"]
+        self.extra_volumes: List = processor_def["extra_volumes"]
+        self.extra_volume_mounts: List = processor_def["extra_volume_mounts"]
         self.jupyer_base_url: str = processor_def["jupyter_base_url"]
         self.base_output_directory: Path = Path(processor_def["output_directory"])
         self.results_in_output_dir: bool = bool(
@@ -419,9 +421,18 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             if self.home_volume_claim_name:
                 yield home_volume_config(self.home_volume_claim_name)
 
+            # DEPRECATED
             yield from (
                 extra_pvc_config(extra_pvc={**extra_pvc, "num": num})
                 for num, extra_pvc in enumerate(self.extra_pvcs)
+            )
+
+            yield from (
+                extra_volume_config(extra_volume) for extra_volume in self.extra_volumes
+            )
+            yield from (
+                extra_volume_mount_config(extra_volume_mount)
+                for extra_volume_mount in self.extra_volume_mounts
             )
 
             if self.s3:
@@ -652,6 +663,7 @@ def home_volume_config(home_volume_claim_name: str) -> ExtraConfig:
 
 
 def extra_pvc_config(extra_pvc: Dict) -> ExtraConfig:
+    # DEPRECATED
     extra_name = f"extra-{extra_pvc['num']}"
     return ExtraConfig(
         volumes=[
@@ -669,6 +681,39 @@ def extra_pvc_config(extra_pvc: Dict) -> ExtraConfig:
                 sub_path=extra_pvc.get("sub_path"),
             )
         ],
+    )
+
+
+def extra_volume_config(extra_volume: Dict) -> ExtraConfig:
+    # stupid transformer from dict to anemic k8s model
+    # NOTE: kubespawner/utils.py has a fancy `get_k8s_model`
+    #       which performs the same thing but way more thoroughly.
+    #       Trying to avoid this complexity here for now
+    def construct_value(k, v):
+        if k == "persistentVolumeClaim":
+            return k8s_client.V1PersistentVolumeClaimVolumeSource(**build(v))
+        else:
+            return v
+
+    def build(input_dict: Dict):
+        return {
+            camel_case_to_snake_case(k): construct_value(k, v)
+            for k, v in input_dict.items()
+        }
+
+    return ExtraConfig(volumes=[k8s_client.V1Volume(**build(extra_volume))])
+
+
+def extra_volume_mount_config(extra_volume_mount: Dict) -> ExtraConfig:
+    # stupid transformer from dict to anemic k8s model
+    def build(input_dict: Dict):
+        return {
+            camel_case_to_snake_case(k): v
+            for k, v in input_dict.items()
+        }
+
+    return ExtraConfig(
+        volume_mounts=[k8s_client.V1VolumeMount(**build(extra_volume_mount))]
     )
 
 
@@ -959,3 +1004,7 @@ def default_kernel(is_gpu: bool, is_edc: bool) -> Optional[str]:
         return "edc"
     else:
         return None
+
+
+def camel_case_to_snake_case(s: str) -> str:
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", s).lower()

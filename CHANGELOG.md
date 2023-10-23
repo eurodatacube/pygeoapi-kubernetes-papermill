@@ -1,3 +1,6 @@
+## 1.1.8
+* Add new `extra_volumes` and `extra_volume_mounts` config
+
 ## 1.1.7
 * Remove result-link feature
 
