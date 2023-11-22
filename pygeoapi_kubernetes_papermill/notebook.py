@@ -230,30 +230,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
 
         kernel = requested.kernel or default_kernel(is_gpu=is_gpu, is_edc=is_edc)
 
-        output_filename_validated = PurePath(
-            requested.output_filename
-            if requested.output_filename
-            else default_output_path(
-                str(requested.notebook),
-                job_id=job_id_from_job_name(job_name),
-            )
-        ).name
-        output_dirname_validated = (
-            PurePath(requested.output_dirname).name
-            if requested.output_dirname
-            else None
-        )
-        output_directory = (
-            self.base_output_directory
-            / date.today().isoformat()
-            / (output_dirname_validated if output_dirname_validated else ".")
-        )
-        output_notebook = setup_output_notebook(
-            output_directory=output_directory,
-            output_notebook_filename=output_filename_validated,
-            results_in_output_dir=self.results_in_output_dir,
-            input_notebook=requested.notebook,
-        )
+        output_notebook = self.setup_output(requested, job_id_from_job_name(job_name))
 
         if requested.run_on_fargate and not self.allow_fargate:
             raise RuntimeError("run_on_fargate is not allowed on this pygeoapi")
@@ -347,7 +324,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 #       for now since that command doesn't do any harm.
                 #       (it will be a problem if there are ever a lot of output files,
                 #       especially on s3fs)
-                f"ls -la {output_directory} >/dev/null"
+                f"ls -la {output_notebook.parent} >/dev/null"
                 " && "
                 + papermill_cmd
                 + "; PAPERMILL_EXIT_CODE=$? "
@@ -504,6 +481,46 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             )
         )
 
+    def setup_output(self, requested: RequestParameters, job_id: str) -> Path:
+        output_dirname_validated = (
+            PurePath(requested.output_dirname).name
+            if requested.output_dirname
+            else None
+        )
+        output_directory = (
+            self.base_output_directory
+            / date.today().isoformat()
+            / (output_dirname_validated if output_dirname_validated else ".")
+        )
+
+        if self.results_in_output_dir:
+            results_dir = now_formatted() + "-" + requested.notebook.stem
+            output_notebook_filename_in_results = (
+                requested.notebook.stem + "_result" + requested.notebook.suffix
+            )
+            output_notebook = (
+                output_directory / results_dir / output_notebook_filename_in_results
+            )
+        else:
+            output_filename_validated = PurePath(
+                requested.output_filename
+                if requested.output_filename
+                else (
+                    requested.notebook.stem
+                    + f"_result_{now_formatted()}_{job_id}.ipynb"
+                )
+            ).name
+            output_notebook = output_directory / output_filename_validated
+        # create output directory owned by root (readable, but not changeable by user)
+        output_notebook.parent.mkdir(exist_ok=True, parents=True)
+
+        output_notebook.touch(exist_ok=False)
+        # TODO: reasonable error when output notebook already exists
+        os.chown(output_notebook, uid=JOVIAN_UID, gid=JOVIAN_GID)
+        os.chmod(output_notebook, mode=0o664)
+
+        return output_notebook
+
     def __repr__(self):
         return "<PapermillNotebookKubernetesProcessor> {}".format(self.name)
 
@@ -588,33 +605,6 @@ def now_formatted() -> str:
 def default_output_path(notebook_path: str, job_id: str) -> str:
     filepath_without_postfix = re.sub(".ipynb$", "", notebook_path)
     return filepath_without_postfix + f"_result_{now_formatted()}_{job_id}.ipynb"
-
-
-def setup_output_notebook(
-    output_directory: Path,
-    output_notebook_filename: str,
-    results_in_output_dir: bool,
-    input_notebook: PurePath,
-) -> Path:
-    if results_in_output_dir:
-        results_dir = now_formatted() + "-" + input_notebook.stem
-        output_notebook_filename_in_results = (
-            input_notebook.stem + "_result" + input_notebook.suffix
-        )
-        output_notebook = (
-            output_directory / results_dir / output_notebook_filename_in_results
-        )
-        output_notebook.parent.mkdir(exist_ok=True, parents=True)
-    else:
-        output_notebook = output_directory / output_notebook_filename
-        # create output directory owned by root (readable, but not changeable by user)
-        output_directory.mkdir(exist_ok=True, parents=True)
-
-    output_notebook.touch(exist_ok=False)
-    # TODO: reasonable error when output notebook already exists
-    os.chown(output_notebook, uid=JOVIAN_UID, gid=JOVIAN_GID)
-    os.chmod(output_notebook, mode=0o664)
-    return output_notebook
 
 
 def working_dir(notebook_path: PurePath) -> PurePath:
@@ -707,10 +697,7 @@ def extra_volume_config(extra_volume: Dict) -> ExtraConfig:
 def extra_volume_mount_config(extra_volume_mount: Dict) -> ExtraConfig:
     # stupid transformer from dict to anemic k8s model
     def build(input_dict: Dict):
-        return {
-            camel_case_to_snake_case(k): v
-            for k, v in input_dict.items()
-        }
+        return {camel_case_to_snake_case(k): v for k, v in input_dict.items()}
 
     return ExtraConfig(
         volume_mounts=[k8s_client.V1VolumeMount(**build(extra_volume_mount))]
