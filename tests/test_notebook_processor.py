@@ -86,6 +86,8 @@ def _create_processor(def_override=None) -> PapermillNotebookKubernetesProcessor
             "run_as_user": None,
             "run_as_group": None,
             "conda_store_groups": [],
+            "extra_resource_limits": {},
+            "extra_resource_requests": {},
             **(def_override if def_override else {}),
         }
     )
@@ -613,3 +615,17 @@ def test_extra_volumes_are_added_on_request(create_pod_kwargs):
     assert "/mnt/my" in [
         m.mount_path for m in job_pod_spec.pod_spec.containers[0].volume_mounts
     ]
+
+
+def test_extra_requirements_are_added(create_pod_kwargs):
+    processor = _create_processor(
+        {
+            "extra_resource_requests": {"ice/cream": 1},
+            "extra_resource_limits": {"ice/cream": 3},
+        }
+    )
+    job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
+
+    resources = job_pod_spec.pod_spec.containers[0].resources
+    assert resources.requests["ice/cream"] == 1
+    assert resources.limits["ice/cream"] == 3

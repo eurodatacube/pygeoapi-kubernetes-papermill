@@ -1,4 +1,5 @@
 ## 1.1.9
+* Add extra resource specifications
 * Remove kernel autoselect based on ancient images
 * Refactor output notebook handling
 

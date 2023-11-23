@@ -209,6 +209,12 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         self.run_as_user: Optional[int] = processor_def["run_as_user"]
         self.run_as_group: Optional[int] = processor_def["run_as_group"]
         self.conda_store_groups: List[str] = processor_def["conda_store_groups"]
+        self.extra_resource_limits: Dict[str, str] = processor_def[
+            "extra_resource_limits"
+        ]
+        self.extra_resource_requests: Dict[str, str] = processor_def[
+            "extra_resource_requests"
+        ]
 
     def create_job_pod_spec(
         self,
@@ -320,7 +326,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             ],
             working_dir=str(CONTAINER_HOME),
             volume_mounts=extra_config.volume_mounts,
-            resources=_resource_requirements(requested),
+            resources=self._resource_requirements(requested),
             env=[
                 # this is provided in jupyter worker containers and we also use it
                 # for compatibility checks
@@ -434,6 +440,24 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 raise RuntimeError(msg)
 
         return image
+
+    def _resource_requirements(self, requested: RequestParameters):
+        return k8s_client.V1ResourceRequirements(
+            limits=drop_none_values(
+                {
+                    "cpu": requested.cpu_limit,
+                    "memory": requested.mem_limit,
+                }
+                | self.extra_resource_limits
+            ),
+            requests=drop_none_values(
+                {
+                    "cpu": requested.cpu_requests,
+                    "memory": requested.mem_requests,
+                }
+                | self.extra_resource_requests
+            ),
+        )
 
     def affinity(self, requested_node_purpose: Optional[str]) -> k8s_client.V1Affinity:
         if node_purpose := requested_node_purpose:
@@ -599,23 +623,6 @@ def working_dir(notebook_path: PurePath) -> PurePath:
         else (CONTAINER_HOME / notebook_path)
     )
     return abs_notebook_path.parent
-
-
-def _resource_requirements(requested: RequestParameters):
-    return k8s_client.V1ResourceRequirements(
-        limits=drop_none_values(
-            {
-                "cpu": requested.cpu_limit,
-                "memory": requested.mem_limit,
-            }
-        ),
-        requests=drop_none_values(
-            {
-                "cpu": requested.cpu_requests,
-                "memory": requested.mem_requests,
-            }
-        ),
-    )
 
 
 def home_volume_config(home_volume_claim_name: str) -> ExtraConfig:

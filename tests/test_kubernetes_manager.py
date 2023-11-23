@@ -197,6 +197,8 @@ def papermill_processor() -> PapermillNotebookKubernetesProcessor:
             "run_as_user": None,
             "run_as_group": None,
             "conda_store_groups": [],
+            "extra_resource_limits": {},
+            "extra_resource_requests": {},
         }
     )
 
