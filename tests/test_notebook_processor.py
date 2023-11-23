@@ -173,35 +173,6 @@ def test_output_is_written_to_output_dir(create_pod_kwargs):
     )
 
 
-def test_gpu_image_produces_gpu_kernel(papermill_gpu_processor, create_pod_kwargs):
-    job_pod_spec = papermill_gpu_processor.create_job_pod_spec(**create_pod_kwargs)
-    assert "-k edc-gpu" in str(job_pod_spec.pod_spec.containers[0].command)
-
-
-def test_gpu_image_has_toleration(papermill_gpu_processor, create_pod_kwargs):
-    job_pod_spec = papermill_gpu_processor.create_job_pod_spec(**create_pod_kwargs)
-    assert "hub.eox.at/gpu" in (
-        toleration.key for toleration in job_pod_spec.pod_spec.tolerations
-    )
-
-
-def test_node_selector_and_gpu_image_can_be_combined(create_pod_kwargs):
-    processor = _create_processor(
-        {
-            "default_image": "jupyter-user-g:1.2.3",
-            "default_node_purpose": "custom-node-1",
-        }
-    )
-    job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
-
-    node_affinity = job_pod_spec.pod_spec.affinity.node_affinity
-    r = node_affinity.required_during_scheduling_ignored_during_execution
-    assert r.node_selector_terms[0].match_expressions[0].values == ["custom-node-1"]
-    assert "hub.eox.at/gpu" in (
-        toleration.key for toleration in job_pod_spec.pod_spec.tolerations
-    )
-
-
 def test_no_s3_bucket_by_default(papermill_processor, create_pod_kwargs):
     job_pod_spec = papermill_processor.create_job_pod_spec(**create_pod_kwargs)
     assert "s3mounter" not in [c.name for c in job_pod_spec.pod_spec.containers]

@@ -224,12 +224,6 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
 
         image = self._image(requested.image)
 
-        image_name = image.split(":")[0]
-        is_gpu = "jupyter-user-g" in image_name
-        is_edc = "eurodatacube" in image_name and "jupyter-user" in image_name
-
-        kernel = requested.kernel or default_kernel(is_gpu=is_gpu, is_edc=is_edc)
-
         output_notebook = self.setup_output(requested, job_id_from_job_name(job_name))
 
         if requested.run_on_fargate and not self.allow_fargate:
@@ -252,15 +246,6 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                     effect="NoSchedule",
                 ),
             ]
-            + (
-                [
-                    k8s_client.V1Toleration(
-                        key="hub.eox.at/gpu", operator="Exists", effect="NoSchedule"
-                    )
-                ]
-                if is_gpu
-                else []
-            ),
         }
 
         if not requested.run_on_fargate:
@@ -287,7 +272,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             "--autosave-cell-every 0 "
             f'--cwd "{working_dir(requested.notebook)}" '
             + ("--log-output " if self.log_output else "")
-            + (f"-k {kernel} " if kernel else "")
+            + (f"-k {requested.kernel} " if requested.kernel else "")
             + (f'-b "{requested.parameters}" ' if requested.parameters else "")
         )
 
@@ -982,15 +967,6 @@ def setup_conda_store_group_cmd(conda_store_groups: List[str]) -> str:
 
 def drop_none_values(d: Dict) -> Dict:
     return {k: v for k, v in d.items() if v is not None}
-
-
-def default_kernel(is_gpu: bool, is_edc: bool) -> Optional[str]:
-    if is_gpu:
-        return "edc-gpu"
-    elif is_edc:
-        return "edc"
-    else:
-        return None
 
 
 def camel_case_to_snake_case(s: str) -> str:

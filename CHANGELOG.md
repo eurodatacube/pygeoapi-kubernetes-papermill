@@ -1,3 +1,7 @@
+## 1.1.9
+* Remove kernel autoselect based on ancient images
+* Refactor output notebook handling
+
 ## 1.1.8
 * Add new `extra_volumes` and `extra_volume_mounts` config
 
