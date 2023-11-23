@@ -284,3 +284,15 @@ def test_secret_job_annotation_parameters_are_hidden():
     parameters = json.loads(job_dict["parameters"])
     assert parameters["foo"] == "bar"
     assert parameters["foo-secret"] == "*"
+
+
+def test_job_params_contain_executed_notebook():
+    job = k8s_client.V1Job(
+        metadata=k8s_client.V1ObjectMeta(
+            annotations={"pygeoapi.io/executed-notebook": "extra/nb.ipynb"}
+        ),
+        status=k8s_client.V1JobStatus(),
+    )
+    job_dict = job_from_k8s(job, message="")
+    parameters = json.loads(job_dict["parameters"])
+    assert parameters["executed-notebook"] == "extra/nb.ipynb"

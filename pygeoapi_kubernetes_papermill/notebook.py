@@ -353,6 +353,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         parameters_str = b64decode(requested.parameters.encode()).decode()
         extra_annotations = {
             "result-notebook": str(output_notebook),
+            "executed-notebook": str(requested.notebook),
         } | (
             # save parameters but make sure the string is not too long
             {"parameters": json.dumps(yaml.safe_load(parameters_str))[:8000]}

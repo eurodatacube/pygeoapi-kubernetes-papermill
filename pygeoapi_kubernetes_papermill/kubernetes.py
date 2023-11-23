@@ -59,8 +59,8 @@ class KubernetesProcessor(BaseProcessor):
     @dataclass(frozen=True)
     class JobPodSpec:
         pod_spec: k8s_client.V1PodSpec
-        extra_annotations: Dict
-        extra_labels: Dict
+        extra_annotations: Dict[str, str]
+        extra_labels: Dict[str, str]
 
     def create_job_pod_spec(
         self,
@@ -414,12 +414,19 @@ def job_from_k8s(job: k8s_client.V1Job, message: Optional[str]) -> JobDict:
         for orig_key, v in annotations.items()
         if (parsed_key := parse_annotation_key(orig_key))
     }
+    executed_notebook = metadata_from_annotation.get("executed-notebook")
 
     try:
         metadata_from_annotation["parameters"] = json.dumps(
             hide_secret_values(
                 json.loads(
                     metadata_from_annotation.get("parameters", "{}"),
+                )
+                # executed notebook is not part of params, but show in UI
+                | (
+                    {"executed-notebook": executed_notebook}
+                    if executed_notebook
+                    else {}
                 ),
             )
         )
