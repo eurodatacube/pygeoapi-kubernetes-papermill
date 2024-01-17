@@ -45,6 +45,7 @@ from pygeoapi_kubernetes_papermill.kubernetes import JobDict
 from pygeoapi_kubernetes_papermill.notebook import (
     CONTAINER_HOME,
     PapermillNotebookKubernetesProcessor,
+    ProcessorClientError,
     notebook_job_output,
 )
 
@@ -509,7 +510,7 @@ def test_allowed_custom_image_can_be_passed(create_pod_kwargs_with):
 def test_not_allowed_custom_image_is_rejected(create_pod_kwargs_with):
     image = "euroevil:2.0"
     processor = _create_processor({"allowed_images_regex": "euro.*:1\\.*"})
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ProcessorClientError):
         processor.create_job_pod_spec(**create_pod_kwargs_with({"image": image}))
 
 
@@ -534,7 +535,7 @@ def test_node_selector_can_be_overwritten(create_pod_kwargs_with, papermill_proc
 
 def test_node_selector_restriced_by_regex(create_pod_kwargs_with, papermill_processor):
     node_purpose = "disallowed-node"
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ProcessorClientError):
         papermill_processor.create_job_pod_spec(
             **create_pod_kwargs_with({"node_purpose": node_purpose})
         )
@@ -629,3 +630,12 @@ def test_extra_requirements_are_added(create_pod_kwargs):
     resources = job_pod_spec.pod_spec.containers[0].resources
     assert resources.requests["ice/cream"] == 1
     assert resources.limits["ice/cream"] == 3
+
+
+def test_invalid_params_raises_user_error(papermill_processor, create_pod_kwargs_with):
+    with pytest.raises(ProcessorClientError) as exc_info:
+        papermill_processor.create_job_pod_spec(
+            # NOTE: this is wrong because mem limit is str
+            **create_pod_kwargs_with({"mem_limit": 4})
+        )
+    assert 'mem_limit' in exc_info.value.message

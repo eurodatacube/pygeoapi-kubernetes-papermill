@@ -31,6 +31,7 @@ from base64 import b64encode, b64decode
 from dataclasses import dataclass, field
 from datetime import datetime, date
 import functools
+from http import HTTPStatus
 import json
 import logging
 import mimetypes
@@ -95,6 +96,10 @@ PROCESS_METADATA = {
         ProcessExecutionMode.sync_execute.value,
     ],
 }
+
+
+class ProcessorClientError(ProcessorExecuteError):
+    http_status_code = HTTPStatus.BAD_REQUEST
 
 
 CONTAINER_HOME = Path("/home/jovyan")
@@ -226,14 +231,16 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         try:
             requested = RequestParameters.from_dict(data)
         except (TypeError, KeyError) as e:
-            raise ProcessorExecuteError(str(e)) from e
+            raise ProcessorClientError(user_msg=f"Invalid parameter: {e}") from e
 
         image = self._image(requested.image)
 
         output_notebook = self.setup_output(requested, job_id_from_job_name(job_name))
 
         if requested.run_on_fargate and not self.allow_fargate:
-            raise RuntimeError("run_on_fargate is not allowed on this pygeoapi")
+            raise ProcessorClientError(
+                user_msg="run_on_fargate is not allowed on this pygeoapi"
+            )
 
         extra_podspec: Dict[str, Any] = {
             "tolerations": [
@@ -438,7 +445,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         if self.allowed_images_regex:
             if not re.fullmatch(self.allowed_images_regex, image):
                 msg = f"Image {image} is not allowed, only {self.allowed_images_regex}"
-                raise RuntimeError(msg)
+                raise ProcessorClientError(user_msg=msg)
 
         return image
 
@@ -465,8 +472,8 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             if not re.fullmatch(
                 self.allowed_node_purposes_regex, requested_node_purpose
             ):
-                raise RuntimeError(
-                    f"Node purpose {requested_node_purpose} not allowed, "
+                raise ProcessorClientError(
+                    user_msg=f"Node purpose {requested_node_purpose} not allowed, "
                     f"only {self.allowed_node_purposes_regex}"
                 )
         else:
