@@ -633,9 +633,8 @@ def test_extra_requirements_are_added(create_pod_kwargs):
 
 
 def test_invalid_params_raises_user_error(papermill_processor, create_pod_kwargs_with):
-    with pytest.raises(ProcessorClientError) as exc_info:
+    with pytest.raises(ProcessorClientError, match=".*mem_limit.*"):
         papermill_processor.create_job_pod_spec(
             # NOTE: this is wrong because mem limit is str
             **create_pod_kwargs_with({"mem_limit": 4})
         )
-    assert 'mem_limit' in exc_info.value.message
