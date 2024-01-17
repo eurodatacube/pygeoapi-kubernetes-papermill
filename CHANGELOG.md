@@ -1,3 +1,9 @@
+## 1.1.11
+* Send 400 error with message for client errors
+
+## 1.1.10
+* Show executed notebook as part of parameters
+
 ## 1.1.9
 * Add extra resource specifications
 * Remove kernel autoselect based on ancient images
