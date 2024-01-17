@@ -11,3 +11,6 @@ test-watch: build
 
 bash: build
 	docker run --env PYGEOAPI_CONFIG=/pkp/tests/pygeoapi-test-config.yaml --volume `pwd`:/pkp -it --entrypoint bash pkp:1
+
+upgrade-packages:
+	docker run --volume `pwd`:/pkp --rm --user 0 --entrypoint bash -it pkp:1 -c "python3 -m pip install pip-upgrader && pip-upgrade --skip-package-installation"
