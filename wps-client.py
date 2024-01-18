@@ -67,24 +67,27 @@ def main(
         result_data_directory=result_data_directory,
     )
 
-    inputs = [
-        parameter("notebook", notebook),
-        parameter("parameters_json", parameters),
-    ] + ([parameter("output_filename", output_filename)] if output_filename else [])
+    inputs = {
+        "notebook": notebook,
+        "parameters_json": parameters,
+    }
+
+    if output_filename:
+        inputs["output_filename"] = output_filename
 
     if cpu:
-        inputs.append(parameter("cpu_requests", cpu_requests))
-        inputs.append(parameter("cpu_limit", cpu_limit))
+        inputs["cpu_requests"] = cpu_requests
+        inputs["cpu_limit"] = cpu_limit
 
     if mem:
-        inputs.append(parameter("mem_requests", mem_requests))
-        inputs.append(parameter("mem_limit", mem_limit))
+        inputs["mem_requests"] = mem_requests
+        inputs["mem_limit"] = mem_limit
 
     if kernel:
-        inputs.append(parameter("kernel", kernel))
+        inputs["kernel"] = kernel
 
     if result_data_directory:
-        inputs.append(parameter("result_data_directory", result_data_directory))
+        inputs["result_data_directory"] = result_data_directory
 
     print("Sending request:")
     pprint.pprint(inputs)
