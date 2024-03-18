@@ -1,4 +1,4 @@
-FROM docker.io/eurodatacube/pygeoapi:latest-20240117
+FROM eurodatacube/pygeoapi:latest-20240318
 
 RUN apt update \
   && apt --no-install-recommends -y install patch vim-tiny

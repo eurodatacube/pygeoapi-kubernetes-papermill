@@ -1,3 +1,6 @@
+## 1.1.12
+* Upgrade underlying pygeoapi to current version
+
 ## 1.1.11
 * Send 400 error with message for client errors
 
