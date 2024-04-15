@@ -56,7 +56,7 @@ from .kubernetes import (
     current_namespace,
     format_annotation_key,
 )
-from .common import job_id_from_job_name
+from .common import job_id_from_job_name, ExtraConfig, ProcessorClientError
 
 LOGGER = logging.getLogger(__name__)
 
@@ -98,10 +98,6 @@ PROCESS_METADATA = {
 }
 
 
-class ProcessorClientError(ProcessorExecuteError):
-    http_status_code = HTTPStatus.BAD_REQUEST
-
-
 CONTAINER_HOME = Path("/home/jovyan")
 JOVIAN_UID = 1000
 JOVIAN_GID = 100
@@ -128,24 +124,6 @@ GIT_CHECKOUT_PATH = CONTAINER_HOME / "git" / "algorithm"
 # NOTE: this is not where we store result notebooks (job-output), but where the algorithms
 #       should store their result data
 RESULT_DATA_PATH = PurePath("/home/jovyan/result-data")
-
-
-@dataclass(frozen=True)
-class ExtraConfig:
-    init_containers: List[k8s_client.V1Container] = field(default_factory=list)
-    containers: List[k8s_client.V1Container] = field(default_factory=list)
-    volume_mounts: List[k8s_client.V1VolumeMount] = field(default_factory=list)
-    volumes: List[k8s_client.V1Volume] = field(default_factory=list)
-    env_from: List[k8s_client.V1EnvFromSource] = field(default_factory=list)
-
-    def __add__(self, other):
-        return ExtraConfig(
-            init_containers=self.init_containers + other.init_containers,
-            containers=self.containers + other.containers,
-            volume_mounts=self.volume_mounts + other.volume_mounts,
-            volumes=self.volumes + other.volumes,
-            env_from=self.env_from + other.env_from,
-        )
 
 
 @dataclass(frozen=True)
@@ -233,6 +211,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         except (TypeError, KeyError) as e:
             raise ProcessorClientError(user_msg=f"Invalid parameter: {e}") from e
 
+        # TODO: every image allowed
         image = self._image(requested.image)
 
         output_notebook = self.setup_output(requested, job_id_from_job_name(job_name))
@@ -367,6 +346,7 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             if requested.parameters
             else {}
         )
+
 
         return KubernetesProcessor.JobPodSpec(
             pod_spec=k8s_client.V1PodSpec(
