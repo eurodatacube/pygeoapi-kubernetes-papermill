@@ -33,43 +33,12 @@ from pygeoapi.util import ProcessExecutionMode
 from typing import Dict, Optional, List
 from typed_json_dataclass import TypedJsonMixin
 
-
-from .kubernetes import (
-    KubernetesProcessor,
-)
-from .common import job_id_from_job_name, ExtraConfig, ProcessorClientError
-
-from base64 import b64encode, b64decode
-from dataclasses import dataclass, field
-from datetime import datetime, date
-import functools
-from http import HTTPStatus
-import json
-import logging
-import mimetypes
-import operator
-from pathlib import PurePath, Path
-import os
-import re
-import time
-from pygeoapi.process.base import ProcessorExecuteError
-from pygeoapi.util import ProcessExecutionMode
-import scrapbook
-import scrapbook.scraps
-from typing import Dict, Iterable, Optional, List, Tuple, Any
-from typed_json_dataclass import TypedJsonMixin
-import yaml
-
 from kubernetes import client as k8s_client
 
 from .kubernetes import (
-    JobDict,
     KubernetesProcessor,
-    current_namespace,
-    format_annotation_key,
 )
-from .common import job_id_from_job_name, ExtraConfig
-
+from .common import ExtraConfig, ProcessorClientError
 
 
 LOGGER = logging.getLogger(__name__)
@@ -138,14 +107,19 @@ class ContainerImageKubernetesProcessor(KubernetesProcessor):
         except (TypeError, KeyError) as e:
             raise ProcessorClientError(user_msg=f"Invalid parameter: {e}") from e
 
+        extra_config = ExtraConfig()
+        # TODO
 
         image_container = k8s_client.V1Container(
             name="notebook",
             image=self.default_image,
+            volume_mounts=extra_config.volume_mounts,
+            # resources=self._resource_requirements(requested),
+            env=(
+                to_k8s_env(requested.parameters_env) if requested.parameters_env else []
+            )
+            + to_k8s_env(self.parameters_env),
         )
-
-
-        extra_config = ExtraConfig()
 
         return KubernetesProcessor.JobPodSpec(
             pod_spec=k8s_client.V1PodSpec(
@@ -165,3 +139,11 @@ class ContainerImageKubernetesProcessor(KubernetesProcessor):
         )
 
 
+def to_k8s_env(env: Dict[str, str]) -> List[k8s_client.V1EnvVar]:
+    return [
+        k8s_client.V1EnvVar(
+            name=k,
+            value=v,
+        )
+        for k, v in env.items()
+    ]

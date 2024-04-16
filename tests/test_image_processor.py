@@ -29,6 +29,7 @@
 
 from collections.abc import Callable
 from typing import Dict, Optional
+import copy
 
 import pytest
 
@@ -69,6 +70,33 @@ def create_pod_kwargs() -> Dict:
     }
 
 
+@pytest.fixture()
+def create_pod_kwargs_with(create_pod_kwargs) -> Callable:
+    def create(data):
+        kwargs = copy.deepcopy(create_pod_kwargs)
+        kwargs["data"].update(data)
+        return kwargs
+
+    return create
+
+
 def test_basic_pod_spec_is_generated(create_processor, create_pod_kwargs):
     spec = create_processor().create_job_pod_spec(**create_pod_kwargs)
     assert spec.pod_spec.containers[0].image == "example-image"
+
+
+def test_env_is_combined_from_conf_and_req(create_processor, create_pod_kwargs_with):
+    spec = create_processor(
+        {"parameters_env": {"from_conf": "there"}}
+    ).create_job_pod_spec(
+        **create_pod_kwargs_with(
+            {
+                "parameters_env": {"from_request": "here"},
+            }
+        )
+    )
+
+    assert {var.name: var.value for var in spec.pod_spec.containers[0].env} == {
+        "from_request": "here",
+        "from_conf": "there",
+    }
