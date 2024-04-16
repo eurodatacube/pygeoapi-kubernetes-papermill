@@ -28,10 +28,9 @@
 # =================================================================
 
 from base64 import b64encode, b64decode
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, date
 import functools
-from http import HTTPStatus
 import json
 import logging
 import mimetypes
@@ -40,7 +39,6 @@ from pathlib import PurePath, Path
 import os
 import re
 import time
-from pygeoapi.process.base import ProcessorExecuteError
 from pygeoapi.util import ProcessExecutionMode
 import scrapbook
 import scrapbook.scraps
@@ -56,7 +54,15 @@ from .kubernetes import (
     current_namespace,
     format_annotation_key,
 )
-from .common import job_id_from_job_name, ExtraConfig, ProcessorClientError
+from .common import (
+    ContainerKubernetesProcessorMixin,
+    job_id_from_job_name,
+    ExtraConfig,
+    ProcessorClientError,
+    drop_none_values,
+    JOVIAN_UID,
+    JOVIAN_GID,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -99,8 +105,6 @@ PROCESS_METADATA = {
 
 
 CONTAINER_HOME = Path("/home/jovyan")
-JOVIAN_UID = 1000
-JOVIAN_GID = 100
 S3_MOUNT_PATH = CONTAINER_HOME / "s3"
 # we wait for the s3 mount (couldn't think of something better than this):
 # * first mount point is emptyDir owned by root.
@@ -159,7 +163,9 @@ class RequestParameters(TypedJsonMixin):
         return cls(**data_preprocessed)
 
 
-class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
+class PapermillNotebookKubernetesProcessor(
+    ContainerKubernetesProcessorMixin, KubernetesProcessor
+):
     def __init__(self, processor_def: dict) -> None:
         super().__init__(processor_def, PROCESS_METADATA)
 
@@ -198,6 +204,11 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
         self.extra_resource_requests: Dict[str, str] = processor_def[
             "extra_resource_requests"
         ]
+
+        if self.s3:
+            # NOTE: for notebooks, we currently only support this mount path
+            #       otherwise wait command would need to be changed
+            self.s3["mount_path"] = str(S3_MOUNT_PATH)
 
     def create_job_pod_spec(
         self,
@@ -347,7 +358,6 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             else {}
         )
 
-
         return KubernetesProcessor.JobPodSpec(
             pod_spec=k8s_client.V1PodSpec(
                 restart_policy="Never",
@@ -372,7 +382,10 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             extra_labels={"runtime": "fargate"} if requested.run_on_fargate else {},
         )
 
-    def _extra_configs(self, git_revision: Optional[str]) -> ExtraConfig:
+    def _extra_configs(  # type: ignore[override]
+        self,
+        git_revision: Optional[str],
+    ) -> ExtraConfig:
         def extra_configs() -> Iterable[ExtraConfig]:
             if self.home_volume_claim_name:
                 yield home_volume_config(self.home_volume_claim_name)
@@ -382,21 +395,6 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 extra_pvc_config(extra_pvc={**extra_pvc, "num": num})
                 for num, extra_pvc in enumerate(self.extra_pvcs)
             )
-
-            yield from (
-                extra_volume_config(extra_volume) for extra_volume in self.extra_volumes
-            )
-            yield from (
-                extra_volume_mount_config(extra_volume_mount)
-                for extra_volume_mount in self.extra_volume_mounts
-            )
-
-            if self.s3:
-                yield s3_config(
-                    bucket_name=self.s3["bucket_name"],
-                    secret_name=self.s3["secret_name"],
-                    s3_url=self.s3["s3_url"],
-                )
 
             access_functions = {
                 "env": extra_secret_env_config,
@@ -418,7 +416,9 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
             if self.conda_store_groups:
                 yield conda_store_group_volume_mounts(self.conda_store_groups)
 
-        return functools.reduce(operator.add, extra_configs(), ExtraConfig())
+        return super()._extra_configs() + functools.reduce(
+            operator.add, extra_configs(), ExtraConfig()
+        )
 
     def _image(self, requested_image: Optional[str]) -> str:
         image = requested_image or self.default_image
@@ -445,37 +445,6 @@ class PapermillNotebookKubernetesProcessor(KubernetesProcessor):
                 }
                 | self.extra_resource_requests
             ),
-        )
-
-    def affinity(self, requested_node_purpose: Optional[str]) -> k8s_client.V1Affinity:
-        if node_purpose := requested_node_purpose:
-            if not re.fullmatch(
-                self.allowed_node_purposes_regex, requested_node_purpose
-            ):
-                raise ProcessorClientError(
-                    user_msg=f"Node purpose {requested_node_purpose} not allowed, "
-                    f"only {self.allowed_node_purposes_regex}"
-                )
-        else:
-            node_purpose = self.default_node_purpose
-
-        node_selector = k8s_client.V1NodeSelector(
-            node_selector_terms=[
-                k8s_client.V1NodeSelectorTerm(
-                    match_expressions=[
-                        k8s_client.V1NodeSelectorRequirement(
-                            key=self.node_purpose_label_key,
-                            operator="In",
-                            values=[node_purpose],
-                        ),
-                    ]
-                )
-            ]
-        )
-        return k8s_client.V1Affinity(
-            node_affinity=k8s_client.V1NodeAffinity(
-                required_during_scheduling_ignored_during_execution=node_selector
-            )
         )
 
     def setup_output(self, requested: RequestParameters, job_id: str) -> Path:
@@ -654,36 +623,6 @@ def extra_pvc_config(extra_pvc: Dict) -> ExtraConfig:
     )
 
 
-def extra_volume_config(extra_volume: Dict) -> ExtraConfig:
-    # stupid transformer from dict to anemic k8s model
-    # NOTE: kubespawner/utils.py has a fancy `get_k8s_model`
-    #       which performs the same thing but way more thoroughly.
-    #       Trying to avoid this complexity here for now
-    def construct_value(k, v):
-        if k == "persistentVolumeClaim":
-            return k8s_client.V1PersistentVolumeClaimVolumeSource(**build(v))
-        else:
-            return v
-
-    def build(input_dict: Dict):
-        return {
-            camel_case_to_snake_case(k): construct_value(k, v)
-            for k, v in input_dict.items()
-        }
-
-    return ExtraConfig(volumes=[k8s_client.V1Volume(**build(extra_volume))])
-
-
-def extra_volume_mount_config(extra_volume_mount: Dict) -> ExtraConfig:
-    # stupid transformer from dict to anemic k8s model
-    def build(input_dict: Dict):
-        return {camel_case_to_snake_case(k): v for k, v in input_dict.items()}
-
-    return ExtraConfig(
-        volume_mounts=[k8s_client.V1VolumeMount(**build(extra_volume_mount))]
-    )
-
-
 def extra_secret_mount_config(secret_name: str, num: int) -> ExtraConfig:
     volume_name = f"secret-{num}"
     return ExtraConfig(
@@ -816,96 +755,6 @@ def git_checkout_config(
     )
 
 
-def s3_config(bucket_name, secret_name, s3_url) -> ExtraConfig:
-    s3_user_bucket_volume_name = "s3-user-bucket"
-    return ExtraConfig(
-        volume_mounts=[
-            k8s_client.V1VolumeMount(
-                mount_path=str(S3_MOUNT_PATH),
-                name=s3_user_bucket_volume_name,
-                mount_propagation="HostToContainer",
-            )
-        ],
-        volumes=[
-            k8s_client.V1Volume(
-                name=s3_user_bucket_volume_name,
-                empty_dir=k8s_client.V1EmptyDirVolumeSource(),
-            )
-        ],
-        containers=[
-            k8s_client.V1Container(
-                name="s3mounter",
-                image="totycro/s3fs:0.7.0-1.90",
-                # we need to detect the end of the job here, this container
-                # must end for the job to be considered done by k8s
-                # this is a missing feature in k8s:
-                # https://github.com/kubernetes/enhancements/issues/753
-                args=[
-                    "sh",
-                    "-c",
-                    'echo "`date` waiting for job start"; '
-                    # first we wait 3 seconds because we might start before papermill
-                    'sleep 3; echo "`date` job start assumed"; '
-                    # we can't just check for papermill, because an `ls` happens before,
-                    # which in extreme cases can take seconds. so we check for bash,
-                    # because the s3fs container doesn't have that and we use that
-                    # in the other container. this is far from perfect.
-                    "while pgrep -x bash >/dev/null; do sleep 1; done; "
-                    'echo "`date` job end detected"; ',
-                ],
-                security_context=k8s_client.V1SecurityContext(privileged=True),
-                volume_mounts=[
-                    k8s_client.V1VolumeMount(
-                        name=s3_user_bucket_volume_name,
-                        mount_path="/opt/s3fs/bucket",
-                        mount_propagation="Bidirectional",
-                    ),
-                ],
-                resources=k8s_client.V1ResourceRequirements(
-                    limits={"cpu": "0.2", "memory": "512Mi"},
-                    requests={
-                        "cpu": "0.05",
-                        "memory": "32Mi",
-                    },
-                ),
-                env=[
-                    k8s_client.V1EnvVar(name="S3FS_ARGS", value="-oallow_other"),
-                    k8s_client.V1EnvVar(name="UID", value=str(JOVIAN_UID)),
-                    k8s_client.V1EnvVar(name="GID", value=str(JOVIAN_GID)),
-                    k8s_client.V1EnvVar(
-                        name="AWS_S3_ACCESS_KEY_ID",
-                        value_from=k8s_client.V1EnvVarSource(
-                            secret_key_ref=k8s_client.V1SecretKeySelector(
-                                name=secret_name,
-                                key="username",
-                            )
-                        ),
-                    ),
-                    k8s_client.V1EnvVar(
-                        name="AWS_S3_SECRET_ACCESS_KEY",
-                        value_from=k8s_client.V1EnvVarSource(
-                            secret_key_ref=k8s_client.V1SecretKeySelector(
-                                name=secret_name,
-                                key="password",
-                            )
-                        ),
-                    ),
-                    k8s_client.V1EnvVar(
-                        "AWS_S3_BUCKET",
-                        bucket_name,
-                    ),
-                    # due to the shared process namespace, tini is not PID 1, so:
-                    k8s_client.V1EnvVar(name="TINI_SUBREAPER", value="1"),
-                    k8s_client.V1EnvVar(
-                        name="AWS_S3_URL",
-                        value=s3_url,
-                    ),
-                ],
-            )
-        ],
-    )
-
-
 def setup_byoa_results_dir_cmd(subdir: str, job_name: str):
     """Create target directory and symlink to it under fixed path, such that jobs can
     always write to fixed path.
@@ -958,11 +807,3 @@ def setup_conda_store_group_cmd(conda_store_groups: List[str]) -> str:
         "python3 -m nb_conda_kernels list",
     )
     return "".join(f"{cmd} && " for cmd in commands)
-
-
-def drop_none_values(d: Dict) -> Dict:
-    return {k: v for k, v in d.items() if v is not None}
-
-
-def camel_case_to_snake_case(s: str) -> str:
-    return re.sub(r"(?<!^)(?=[A-Z])", "_", s).lower()

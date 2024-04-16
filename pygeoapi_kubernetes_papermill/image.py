@@ -30,7 +30,7 @@
 from dataclasses import dataclass
 import logging
 from pygeoapi.util import ProcessExecutionMode
-from typing import Dict, Optional, List
+from typing import Any, Dict, Optional, List
 from typed_json_dataclass import TypedJsonMixin
 
 from kubernetes import client as k8s_client
@@ -38,7 +38,12 @@ from kubernetes import client as k8s_client
 from .kubernetes import (
     KubernetesProcessor,
 )
-from .common import ExtraConfig, ProcessorClientError
+from .common import (
+    ContainerKubernetesProcessorMixin,
+    ExtraConfig,
+    ProcessorClientError,
+    drop_none_values,
+)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -76,7 +81,9 @@ class RequestParameters(TypedJsonMixin):
     node_purpose: Optional[str] = ""
 
 
-class ContainerImageKubernetesProcessor(KubernetesProcessor):
+class ContainerImageKubernetesProcessor(
+    ContainerKubernetesProcessorMixin, KubernetesProcessor
+):
     def __init__(self, processor_def: dict) -> None:
         super().__init__(processor_def, PROCESS_METADATA)
 
@@ -87,6 +94,7 @@ class ContainerImageKubernetesProcessor(KubernetesProcessor):
         self.s3: Optional[Dict[str, str]] = processor_def.get("s3")
         self.extra_volumes: List = processor_def["extra_volumes"]
         self.extra_volume_mounts: List = processor_def["extra_volume_mounts"]
+        self.node_purpose_label_key: str = processor_def["node_purpose_label_key"]
         self.default_node_purpose: str = processor_def["default_node_purpose"]
         self.allowed_node_purposes_regex: str = processor_def[
             "allowed_node_purposes_regex"
@@ -108,13 +116,26 @@ class ContainerImageKubernetesProcessor(KubernetesProcessor):
             raise ProcessorClientError(user_msg=f"Invalid parameter: {e}") from e
 
         extra_config = ExtraConfig()
-        # TODO
+        extra_podspec: Dict[str, Any] = {}
+
+        # TODO: common validation?
+        if requested.run_on_fargate and not self.allow_fargate:
+            raise ProcessorClientError(
+                user_msg="run_on_fargate is not allowed on this pygeoapi"
+            )
+
+        # TODO: common validation?
+        if not requested.run_on_fargate:
+            extra_podspec["affinity"] = self.affinity(requested.node_purpose)
+
+        # TODO: result_data_dir (only remaining param)
 
         image_container = k8s_client.V1Container(
             name="notebook",
             image=self.default_image,
+            command=[],  # TODO
             volume_mounts=extra_config.volume_mounts,
-            # resources=self._resource_requirements(requested),
+            resources=_resource_requirements(requested),
             env=(
                 to_k8s_env(requested.parameters_env) if requested.parameters_env else []
             )
@@ -137,6 +158,23 @@ class ContainerImageKubernetesProcessor(KubernetesProcessor):
             extra_annotations={},
             extra_labels={"runtime": "fargate"} if requested.run_on_fargate else {},
         )
+
+
+def _resource_requirements(requested: RequestParameters):
+    return k8s_client.V1ResourceRequirements(
+        limits=drop_none_values(
+            {
+                "cpu": requested.cpu_limit,
+                "memory": requested.mem_limit,
+            }
+        ),
+        requests=drop_none_values(
+            {
+                "cpu": requested.cpu_requests,
+                "memory": requested.mem_requests,
+            }
+        ),
+    )
 
 
 def to_k8s_env(env: Dict[str, str]) -> List[k8s_client.V1EnvVar]:

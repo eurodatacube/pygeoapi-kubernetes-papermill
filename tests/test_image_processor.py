@@ -50,6 +50,7 @@ def create_processor() -> Callable[[Optional[dict]], ContainerImageKubernetesPro
                 "s3": None,
                 "extra_volumes": [],
                 "extra_volume_mounts": [],
+                "node_purpose_label_key": "",
                 "default_node_purpose": "",
                 "allowed_node_purposes_regex": "",
                 "tolerations": [],
