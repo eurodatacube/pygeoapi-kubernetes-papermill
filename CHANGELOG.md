@@ -1,3 +1,6 @@
+## 1.2.1, 1.2.2
+* Setup fixes
+
 ## 1.2.0
 * Add container image execution
 
