@@ -110,7 +110,7 @@ def test_command_is_combined_with_results_dir_setup(
         **create_pod_kwargs_with({"result_data_directory": "my-run-r0000"})
     )
 
-    command =  spec.pod_spec.containers[0].command
+    command = spec.pod_spec.containers[0].command
     assert command[0] == "bash"
     assert command[3].endswith("&& true")
     assert 'mkdir "/full-results-pvc/my-run-r0000";' in command[3]
