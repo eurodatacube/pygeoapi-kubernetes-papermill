@@ -42,7 +42,7 @@ import time
 from pygeoapi.util import ProcessExecutionMode
 import scrapbook
 import scrapbook.scraps
-from typing import Dict, Iterable, Optional, List, Tuple, Any
+from typing import Iterable, Optional,  Any
 from typed_json_dataclass import TypedJsonMixin
 import yaml
 
@@ -150,7 +150,7 @@ class RequestParameters(TypedJsonMixin):
 
     @classmethod
     def from_dict(cls, data: dict) -> "RequestParameters":
-        data_preprocessed: Dict[str, Any] = {
+        data_preprocessed: dict[str, Any] = {
             **data,
             "notebook": PurePath(data["notebook"]),
         }
@@ -174,18 +174,18 @@ class PapermillNotebookKubernetesProcessor(
         self.default_image: str = processor_def["default_image"]
         self.allowed_images_regex: str = processor_def["allowed_images_regex"]
         self.image_pull_secret: str = processor_def["image_pull_secret"]
-        self.s3: Optional[Dict[str, str]] = processor_def.get("s3")
+        self.s3: Optional[dict[str, str]] = processor_def.get("s3")
         self.home_volume_claim_name: str = processor_def["home_volume_claim_name"]
-        self.extra_pvcs: List = processor_def["extra_pvcs"]
-        self.extra_volumes: List = processor_def["extra_volumes"]
-        self.extra_volume_mounts: List = processor_def["extra_volume_mounts"]
+        self.extra_pvcs: list = processor_def["extra_pvcs"]
+        self.extra_volumes: list = processor_def["extra_volumes"]
+        self.extra_volume_mounts: list = processor_def["extra_volume_mounts"]
         self.jupyer_base_url: str = processor_def["jupyter_base_url"]
         self.base_output_directory: Path = Path(processor_def["output_directory"])
         self.results_in_output_dir: bool = bool(
             processor_def.get("results_in_output_dir")
         )
         self.secrets = processor_def["secrets"]
-        self.checkout_git_repo: Optional[Dict] = processor_def.get("checkout_git_repo")
+        self.checkout_git_repo: Optional[dict] = processor_def.get("checkout_git_repo")
         self.log_output: bool = processor_def["log_output"]
         self.default_node_purpose: str = processor_def["default_node_purpose"]
         self.allowed_node_purposes_regex: str = processor_def[
@@ -198,11 +198,11 @@ class PapermillNotebookKubernetesProcessor(
         self.node_purpose_label_key: str = processor_def["node_purpose_label_key"]
         self.run_as_user: Optional[int] = processor_def["run_as_user"]
         self.run_as_group: Optional[int] = processor_def["run_as_group"]
-        self.conda_store_groups: List[str] = processor_def["conda_store_groups"]
-        self.extra_resource_limits: Dict[str, str] = processor_def[
+        self.conda_store_groups: list[str] = processor_def["conda_store_groups"]
+        self.extra_resource_limits: dict[str, str] = processor_def[
             "extra_resource_limits"
         ]
-        self.extra_resource_requests: Dict[str, str] = processor_def[
+        self.extra_resource_requests: dict[str, str] = processor_def[
             "extra_resource_requests"
         ]
 
@@ -213,7 +213,7 @@ class PapermillNotebookKubernetesProcessor(
 
     def create_job_pod_spec(
         self,
-        data: Dict,
+        data: dict,
         job_name: str,
     ) -> KubernetesProcessor.JobPodSpec:
         LOGGER.debug("Starting job with data %s", data)
@@ -483,7 +483,7 @@ class PapermillNotebookKubernetesProcessor(
         return "<PapermillNotebookKubernetesProcessor> {}".format(self.name)
 
 
-def notebook_job_output(result: JobDict) -> Tuple[Optional[str], Any]:
+def notebook_job_output(result: JobDict) -> tuple[Optional[str], Any]:
     # NOTE: this assumes that we have user home under the same path as jupyter
     notebook_path = Path(result["result-notebook"])
 
@@ -533,7 +533,7 @@ def _wait_for_result_file(notebook_path: Path) -> None:
             time.sleep(1)
 
 
-def serialize_single_scrap(scrap: scrapbook.scraps.Scrap) -> Tuple[Optional[str], Any]:
+def serialize_single_scrap(scrap: scrapbook.scraps.Scrap) -> tuple[Optional[str], Any]:
     text_mime = "text/plain"
 
     if scrap.display:
@@ -593,7 +593,7 @@ def home_volume_config(home_volume_claim_name: str) -> ExtraConfig:
     )
 
 
-def extra_pvc_config(extra_pvc: Dict) -> ExtraConfig:
+def extra_pvc_config(extra_pvc: dict) -> ExtraConfig:
     # DEPRECATED
     extra_name = f"extra-{extra_pvc['num']}"
     return ExtraConfig(
@@ -747,7 +747,7 @@ def git_checkout_config(
     )
 
 
-def conda_store_group_volume_mounts(conda_store_groups: List[str]) -> ExtraConfig:
+def conda_store_group_volume_mounts(conda_store_groups: list[str]) -> ExtraConfig:
     return ExtraConfig(
         volumes=[
             k8s_client.V1Volume(
@@ -769,7 +769,7 @@ def conda_store_group_volume_mounts(conda_store_groups: List[str]) -> ExtraConfi
     )
 
 
-def setup_conda_store_group_cmd(conda_store_groups: List[str]) -> str:
+def setup_conda_store_group_cmd(conda_store_groups: list[str]) -> str:
     """nb_conda_kernels setup for papermill:
     https://github.com/Anaconda-Platform/nb_conda_kernels#use-with-nbconvert-voila-papermill
     """
