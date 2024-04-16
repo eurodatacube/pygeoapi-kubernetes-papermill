@@ -1,3 +1,6 @@
+## 1.2.0
+* Add container image execution
+
 ## 1.1.12
 * Upgrade underlying pygeoapi to current version
 
