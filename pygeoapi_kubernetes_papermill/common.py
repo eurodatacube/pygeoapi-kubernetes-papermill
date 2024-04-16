@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 import functools
 import logging
 import operator
-from typing import Iterable, List, Dict, Optional
+from typing import Any, Iterable, List, Dict, Optional
 import re
 
 from http import HTTPStatus
@@ -93,8 +93,27 @@ class ContainerKubernetesProcessorMixin:
     default_node_purpose: str
     node_purpose_label_key: str
     s3: Optional[Dict[str, str]]
-    extra_volumes: List
-    extra_volume_mounts: List
+    extra_volumes: list
+    extra_volume_mounts: list
+    allow_fargate: bool
+    tolerations: list
+
+    def _extra_podspec(self, requested: Any):
+        extra_podspec: Dict[str, Any] = {
+            "tolerations": [
+                k8s_client.V1Toleration(**toleration) for toleration in self.tolerations
+            ]
+        }
+
+        if requested.run_on_fargate and not self.allow_fargate:
+            raise ProcessorClientError(
+                user_msg="run_on_fargate is not allowed on this pygeoapi"
+            )
+
+        if not requested.run_on_fargate:
+            extra_podspec["affinity"] = self.affinity(requested.node_purpose)
+
+        return extra_podspec
 
     def affinity(self, requested_node_purpose: Optional[str]) -> k8s_client.V1Affinity:
         if node_purpose := requested_node_purpose:

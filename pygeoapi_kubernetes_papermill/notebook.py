@@ -227,32 +227,20 @@ class PapermillNotebookKubernetesProcessor(
 
         output_notebook = self.setup_output(requested, job_id_from_job_name(job_name))
 
-        if requested.run_on_fargate and not self.allow_fargate:
-            raise ProcessorClientError(
-                user_msg="run_on_fargate is not allowed on this pygeoapi"
-            )
-
-        extra_podspec: Dict[str, Any] = {
-            "tolerations": [
-                k8s_client.V1Toleration(**toleration) for toleration in self.tolerations
-            ]
-            + [
-                k8s_client.V1Toleration(
-                    # alwyas tolerate gpu, is selected by node group only
-                    key="nvidia.com/gpu",
-                    operator="Exists",
-                    effect="NoSchedule",
-                ),
-                k8s_client.V1Toleration(
-                    key="hub.jupyter.org/dedicated",
-                    operator="Exists",
-                    effect="NoSchedule",
-                ),
-            ]
-        }
-
-        if not requested.run_on_fargate:
-            extra_podspec["affinity"] = self.affinity(requested.node_purpose)
+        extra_podspec = self._extra_podspec(requested)
+        extra_podspec["tolerations"] += [
+            k8s_client.V1Toleration(
+                # alwyas tolerate gpu, is selected by node group only
+                key="nvidia.com/gpu",
+                operator="Exists",
+                effect="NoSchedule",
+            ),
+            k8s_client.V1Toleration(
+                key="hub.jupyter.org/dedicated",
+                operator="Exists",
+                effect="NoSchedule",
+            ),
+        ]
 
         if self.image_pull_secret:
             extra_podspec["image_pull_secrets"] = [

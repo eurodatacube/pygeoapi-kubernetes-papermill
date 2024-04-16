@@ -30,7 +30,7 @@
 from dataclasses import dataclass
 import logging
 from pygeoapi.util import ProcessExecutionMode
-from typing import Any, Dict, Optional, List
+from typing import Dict, Optional, List
 from typed_json_dataclass import TypedJsonMixin
 
 from kubernetes import client as k8s_client
@@ -40,7 +40,6 @@ from .kubernetes import (
 )
 from .common import (
     ContainerKubernetesProcessorMixin,
-    ExtraConfig,
     ProcessorClientError,
     drop_none_values,
 )
@@ -115,19 +114,8 @@ class ContainerImageKubernetesProcessor(
         except (TypeError, KeyError) as e:
             raise ProcessorClientError(user_msg=f"Invalid parameter: {e}") from e
 
-        extra_config = ExtraConfig()
-        extra_podspec: Dict[str, Any] = {}
-
-        # TODO: common validation?
-        if requested.run_on_fargate and not self.allow_fargate:
-            raise ProcessorClientError(
-                user_msg="run_on_fargate is not allowed on this pygeoapi"
-            )
-
-        # TODO: common validation?
-        if not requested.run_on_fargate:
-            extra_podspec["affinity"] = self.affinity(requested.node_purpose)
-
+        extra_config = self._extra_configs()
+        extra_podspec = self._extra_podspec(requested)
         # TODO: result_data_dir (only remaining param)
 
         image_container = k8s_client.V1Container(
@@ -152,7 +140,7 @@ class ContainerImageKubernetesProcessor(
                 # we need this to be able to terminate the sidecar container
                 # https://github.com/kubernetes/kubernetes/issues/25908
                 share_process_namespace=True,
-                # **extra_podspec,
+                **extra_podspec,
                 enable_service_links=False,
             ),
             extra_annotations={},
