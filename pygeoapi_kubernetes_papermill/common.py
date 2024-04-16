@@ -33,8 +33,9 @@ import logging
 import operator
 from typing import Any, Iterable, List, Dict, Optional
 import re
-
+from pathlib import PurePath
 from http import HTTPStatus
+
 from pygeoapi.process.base import ProcessorExecuteError
 
 
@@ -289,3 +290,25 @@ def s3_config(bucket_name, secret_name, s3_url, mount_path) -> ExtraConfig:
 
 def camel_case_to_snake_case(s: str) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", "_", s).lower()
+
+
+def setup_byoa_results_dir_cmd(
+    subdir: str,
+    job_name: str,
+    result_data_path: PurePath,
+    parent_of_subdir: PurePath,
+):
+    """Create target directory and symlink to it under fixed path, such that jobs can
+    always write to fixed path.
+    This happens on job runtime because in byoa it's not on a pvc. Also in this case,
+    the output notebook should not be included in the results.
+    """
+    subdir_expanded = subdir.format(job_name=job_name)
+    # make sure this is only a path, not something really malicious
+    subdir_validated = PurePath(subdir_expanded)
+    path_to_subdir = parent_of_subdir / subdir_validated
+    return (
+        f'if [ ! -d "{path_to_subdir}" ] ; then mkdir "{path_to_subdir}"; fi &&  '
+        f'ln -sf --no-dereference "{path_to_subdir}" "{result_data_path}" && '
+        # NOTE: no-dereference is useful if home is a persisted mounted volume
+    )

@@ -62,6 +62,7 @@ from .common import (
     drop_none_values,
     JOVIAN_UID,
     JOVIAN_GID,
+    setup_byoa_results_dir_cmd,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -288,7 +289,10 @@ class PapermillNotebookKubernetesProcessor(
                 + (S3_MOUNT_WAIT_CMD if self.s3 else "")
                 + (
                     setup_byoa_results_dir_cmd(
-                        requested.result_data_directory, job_name
+                        parent_of_subdir=CONTAINER_HOME,
+                        subdir=requested.result_data_directory,
+                        result_data_path=RESULT_DATA_PATH,
+                        job_name=job_name,
                     )
                     if requested.result_data_directory
                     else ""
@@ -740,23 +744,6 @@ def git_checkout_config(
                 empty_dir=k8s_client.V1EmptyDirVolumeSource(),
             )
         ],
-    )
-
-
-def setup_byoa_results_dir_cmd(subdir: str, job_name: str):
-    """Create target directory and symlink to it under fixed path, such that jobs can
-    always write to fixed path.
-    This happens on job runtime because in byoa it's not on a pvc. Also in this case,
-    the output notebook should not be included in the results.
-    """
-    subdir_expanded = subdir.format(job_name=job_name)
-    # make sure this is only a path, not something really malicious
-    subdir_validated = PurePath(subdir_expanded)
-    path_to_subdir = CONTAINER_HOME / subdir_validated
-    return (
-        f'if [ ! -d "{path_to_subdir}" ] ; then mkdir "{path_to_subdir}"; fi &&  '
-        f'ln -sf --no-dereference "{path_to_subdir}" "{RESULT_DATA_PATH}" && '
-        # NOTE: no-dereference is useful if home is a persisted mounted volume
     )
 
 

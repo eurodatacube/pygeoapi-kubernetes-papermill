@@ -29,6 +29,7 @@
 
 from dataclasses import dataclass
 import logging
+from pathlib import PurePath
 from pygeoapi.util import ProcessExecutionMode
 from typing import Dict, Optional, List
 from typed_json_dataclass import TypedJsonMixin
@@ -42,6 +43,7 @@ from .common import (
     ContainerKubernetesProcessorMixin,
     ProcessorClientError,
     drop_none_values,
+    setup_byoa_results_dir_cmd,
 )
 
 
@@ -121,7 +123,22 @@ class ContainerImageKubernetesProcessor(
         image_container = k8s_client.V1Container(
             name="notebook",
             image=self.default_image,
-            command=[],  # TODO
+            command=[
+                "bash",
+                "-i",
+                "-c",
+                (
+                    setup_byoa_results_dir_cmd(
+                        parent_of_subdir=PurePath("/full-results-pvc"),
+                        subdir=requested.result_data_directory,
+                        result_data_path=PurePath("/output"),
+                        job_name=job_name,
+                    )
+                    if requested.result_data_directory
+                    else ""
+                )
+                + self.command,
+            ],
             volume_mounts=extra_config.volume_mounts,
             resources=_resource_requirements(requested),
             env=(
@@ -146,6 +163,9 @@ class ContainerImageKubernetesProcessor(
             extra_annotations={},
             extra_labels={"runtime": "fargate"} if requested.run_on_fargate else {},
         )
+
+    def __repr__(self):
+        return "<ContainerImageKubernetesProcessor> {}".format(self.name)
 
 
 def _resource_requirements(requested: RequestParameters):
