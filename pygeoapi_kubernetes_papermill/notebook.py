@@ -42,7 +42,7 @@ import time
 from pygeoapi.util import ProcessExecutionMode
 import scrapbook
 import scrapbook.scraps
-from typing import Iterable, Optional,  Any
+from typing import Iterable, Optional, Any
 from typed_json_dataclass import TypedJsonMixin
 import yaml
 
@@ -223,7 +223,6 @@ class PapermillNotebookKubernetesProcessor(
         except (TypeError, KeyError) as e:
             raise ProcessorClientError(user_msg=f"Invalid parameter: {e}") from e
 
-        # TODO: every image allowed
         image = self._image(requested.image)
 
         output_notebook = self.setup_output(requested, job_id_from_job_name(job_name))
@@ -413,13 +412,18 @@ class PapermillNotebookKubernetesProcessor(
         )
 
     def _image(self, requested_image: Optional[str]) -> str:
-        image = requested_image or self.default_image
-        if self.allowed_images_regex:
-            if not re.fullmatch(self.allowed_images_regex, image):
-                msg = f"Image {image} is not allowed, only {self.allowed_images_regex}"
-                raise ProcessorClientError(user_msg=msg)
-
-        return image
+        if requested_image:
+            if not self.allowed_images_regex:
+                raise ProcessorClientError(user_msg="Custom images are not allowed")
+            elif not re.fullmatch(self.allowed_images_regex, requested_image):
+                raise ProcessorClientError(
+                    user_msg=f"Image {requested_image} is not allowed, "
+                    f"only {self.allowed_images_regex}"
+                )
+            else:
+                return requested_image
+        else:
+            return self.default_image
 
     def _resource_requirements(self, requested: RequestParameters):
         return k8s_client.V1ResourceRequirements(

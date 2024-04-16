@@ -514,6 +514,13 @@ def test_not_allowed_custom_image_is_rejected(create_pod_kwargs_with):
         processor.create_job_pod_spec(**create_pod_kwargs_with({"image": image}))
 
 
+def test_no_custom_image_if_not_allowed(create_pod_kwargs_with):
+    image = "eurouser:1.2"
+    processor = _create_processor()
+    with pytest.raises(ProcessorClientError):
+        processor.create_job_pod_spec(**create_pod_kwargs_with({"image": image}))
+
+
 def test_default_image_has_affinity(papermill_processor, create_pod_kwargs):
     job_pod_spec = papermill_processor.create_job_pod_spec(**create_pod_kwargs)
 
