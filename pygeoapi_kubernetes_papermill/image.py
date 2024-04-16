@@ -118,7 +118,6 @@ class ContainerImageKubernetesProcessor(
 
         extra_config = self._extra_configs()
         extra_podspec = self._extra_podspec(requested)
-        # TODO: result_data_dir (only remaining param)
 
         image_container = k8s_client.V1Container(
             name="notebook",
