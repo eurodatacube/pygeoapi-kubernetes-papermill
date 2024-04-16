@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 import functools
 import logging
 import operator
-from typing import Any, Iterable, List, Dict, Optional
+from typing import Any, Iterable, Optional
 import re
 from pathlib import PurePath
 from http import HTTPStatus
@@ -65,11 +65,11 @@ def job_id_from_job_name(job_name: str) -> str:
 
 @dataclass(frozen=True)
 class ExtraConfig:
-    init_containers: List[k8s_client.V1Container] = field(default_factory=list)
-    containers: List[k8s_client.V1Container] = field(default_factory=list)
-    volume_mounts: List[k8s_client.V1VolumeMount] = field(default_factory=list)
-    volumes: List[k8s_client.V1Volume] = field(default_factory=list)
-    env_from: List[k8s_client.V1EnvFromSource] = field(default_factory=list)
+    init_containers: list[k8s_client.V1Container] = field(default_factory=list)
+    containers: list[k8s_client.V1Container] = field(default_factory=list)
+    volume_mounts: list[k8s_client.V1VolumeMount] = field(default_factory=list)
+    volumes: list[k8s_client.V1Volume] = field(default_factory=list)
+    env_from: list[k8s_client.V1EnvFromSource] = field(default_factory=list)
 
     def __add__(self, other):
         return ExtraConfig(
@@ -85,7 +85,7 @@ class ProcessorClientError(ProcessorExecuteError):
     http_status_code = HTTPStatus.BAD_REQUEST
 
 
-def drop_none_values(d: Dict) -> Dict:
+def drop_none_values(d: dict) -> dict:
     return {k: v for k, v in d.items() if v is not None}
 
 
@@ -93,14 +93,14 @@ class ContainerKubernetesProcessorMixin:
     allowed_node_purposes_regex: str
     default_node_purpose: str
     node_purpose_label_key: str
-    s3: Optional[Dict[str, str]]
+    s3: Optional[dict[str, str]]
     extra_volumes: list
     extra_volume_mounts: list
     allow_fargate: bool
     tolerations: list
 
     def _extra_podspec(self, requested: Any):
-        extra_podspec: Dict[str, Any] = {
+        extra_podspec: dict[str, Any] = {
             "tolerations": [
                 k8s_client.V1Toleration(**toleration) for toleration in self.tolerations
             ]
@@ -168,7 +168,7 @@ class ContainerKubernetesProcessorMixin:
         return functools.reduce(operator.add, extra_configs(), ExtraConfig())
 
 
-def extra_volume_config(extra_volume: Dict) -> ExtraConfig:
+def extra_volume_config(extra_volume: dict) -> ExtraConfig:
     # stupid transformer from dict to anemic k8s model
     # NOTE: kubespawner/utils.py has a fancy `get_k8s_model`
     #       which performs the same thing but way more thoroughly.
@@ -179,7 +179,7 @@ def extra_volume_config(extra_volume: Dict) -> ExtraConfig:
         else:
             return v
 
-    def build(input_dict: Dict):
+    def build(input_dict: dict):
         return {
             camel_case_to_snake_case(k): construct_value(k, v)
             for k, v in input_dict.items()
@@ -188,9 +188,9 @@ def extra_volume_config(extra_volume: Dict) -> ExtraConfig:
     return ExtraConfig(volumes=[k8s_client.V1Volume(**build(extra_volume))])
 
 
-def extra_volume_mount_config(extra_volume_mount: Dict) -> ExtraConfig:
+def extra_volume_mount_config(extra_volume_mount: dict) -> ExtraConfig:
     # stupid transformer from dict to anemic k8s model
-    def build(input_dict: Dict):
+    def build(input_dict: dict):
         return {camel_case_to_snake_case(k): v for k, v in input_dict.items()}
 
     return ExtraConfig(

@@ -31,7 +31,7 @@ from dataclasses import dataclass
 import logging
 from pathlib import PurePath
 from pygeoapi.util import ProcessExecutionMode
-from typing import Dict, Optional, List
+from typing import Optional
 from typed_json_dataclass import TypedJsonMixin
 
 from kubernetes import client as k8s_client
@@ -92,9 +92,9 @@ class ContainerImageKubernetesProcessor(
         self.command: str = processor_def["command"]
         self.allowed_images_regex: str = processor_def["allowed_images_regex"]
         # self.image_pull_secret: str = processor_def["image_pull_secret"]
-        self.s3: Optional[Dict[str, str]] = processor_def.get("s3")
-        self.extra_volumes: List = processor_def["extra_volumes"]
-        self.extra_volume_mounts: List = processor_def["extra_volume_mounts"]
+        self.s3: Optional[dict[str, str]] = processor_def.get("s3")
+        self.extra_volumes: list = processor_def["extra_volumes"]
+        self.extra_volume_mounts: list = processor_def["extra_volume_mounts"]
         self.node_purpose_label_key: str = processor_def["node_purpose_label_key"]
         self.default_node_purpose: str = processor_def["default_node_purpose"]
         self.allowed_node_purposes_regex: str = processor_def[
@@ -106,7 +106,7 @@ class ContainerImageKubernetesProcessor(
 
     def create_job_pod_spec(
         self,
-        data: Dict,
+        data: dict,
         job_name: str,
     ) -> KubernetesProcessor.JobPodSpec:
         LOGGER.debug("Starting job with data %s", data)
@@ -185,7 +185,7 @@ def _resource_requirements(requested: RequestParameters):
     )
 
 
-def to_k8s_env(env: Dict[str, str]) -> List[k8s_client.V1EnvVar]:
+def to_k8s_env(env: dict[str, str]) -> list[k8s_client.V1EnvVar]:
     return [
         k8s_client.V1EnvVar(
             name=k,

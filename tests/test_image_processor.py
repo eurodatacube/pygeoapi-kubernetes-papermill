@@ -28,7 +28,7 @@
 # =================================================================
 
 from collections.abc import Callable
-from typing import Dict, Optional
+from typing import Optional
 import copy
 
 import pytest
@@ -64,7 +64,7 @@ def create_processor() -> Callable[[Optional[dict]], ContainerImageKubernetesPro
 
 
 @pytest.fixture()
-def create_pod_kwargs() -> Dict:
+def create_pod_kwargs() -> dict:
     return {
         "data": {"parameters_env": {}},
         "job_name": "my-job",

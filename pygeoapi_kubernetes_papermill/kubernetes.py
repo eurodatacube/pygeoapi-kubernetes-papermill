@@ -36,7 +36,7 @@ import json
 import logging
 import re
 import time
-from typing import Dict, Optional, Tuple, Any, TypedDict, cast, List
+from typing import Optional, Any, TypedDict, cast
 import os
 
 from kubernetes import client as k8s_client, config as k8s_config
@@ -59,12 +59,12 @@ class KubernetesProcessor(BaseProcessor):
     @dataclass(frozen=True)
     class JobPodSpec:
         pod_spec: k8s_client.V1PodSpec
-        extra_annotations: Dict[str, str]
-        extra_labels: Dict[str, str]
+        extra_annotations: dict[str, str]
+        extra_labels: dict[str, str]
 
     def create_job_pod_spec(
         self,
-        data: Dict,
+        data: dict,
         job_name: str,
     ) -> JobPodSpec:
         """
@@ -94,7 +94,7 @@ JobDict = TypedDict(
 
 
 class KubernetesManager(BaseManager):
-    def __init__(self, manager_def: Dict) -> None:
+    def __init__(self, manager_def: dict) -> None:
         super().__init__(manager_def)
 
         self.is_async = True
@@ -114,7 +114,7 @@ class KubernetesManager(BaseManager):
         self.batch_v1 = k8s_client.BatchV1Api()
         self.core_api = k8s_client.CoreV1Api()
 
-    def get_jobs(self, status=None) -> List[JobDict]:
+    def get_jobs(self, status=None) -> list[JobDict]:
         """
         Get process jobs, optionally filtered by status
 
@@ -124,7 +124,7 @@ class KubernetesManager(BaseManager):
         :returns: `list` of jobs (identifier, status, process identifier)
         """
 
-        k8s_jobs: k8s_client.V1JobList = self.batch_v1.list_namespaced_job(
+        k8s_jobs: k8s_client.V1Joblist = self.batch_v1.list_namespaced_job(
             namespace=self.namespace,
         )
         # TODO: implement status filter
@@ -180,7 +180,7 @@ class KubernetesManager(BaseManager):
         # we could update the metadata by changing the job annotations
         raise NotImplementedError("Currently there's no use case for updating k8s jobs")
 
-    def get_job_result(self, job_id) -> Tuple[Optional[Any], Optional[str]]:
+    def get_job_result(self, job_id) -> tuple[Optional[Any], Optional[str]]:
         """
         Returns the actual output from a completed process
 
@@ -255,8 +255,8 @@ class KubernetesManager(BaseManager):
         return True
 
     def _execute_handler_sync(
-        self, p: BaseProcessor, job_id, data_dict: Dict
-    ) -> Tuple[Optional[str], Optional[Any], JobStatus]:
+        self, p: BaseProcessor, job_id, data_dict: dict
+    ) -> tuple[Optional[str], Optional[Any], JobStatus]:
         """
         Synchronous execution handler
 
@@ -287,7 +287,7 @@ class KubernetesManager(BaseManager):
 
     def _execute_handler_async(
         self, p: KubernetesProcessor, job_id, data_dict
-    ) -> Tuple[str, dict, JobStatus]:
+    ) -> tuple[str, dict, JobStatus]:
         """
         In practise k8s jobs are always async.
 
