@@ -435,6 +435,8 @@ def job_from_k8s(job: k8s_client.V1Job, message: Optional[str]) -> JobDict:
 
     status = job_status_from_k8s(job.status)
     completion_time = get_completion_time(job, status)
+    # default values in case we don't get them from metadata
+    default_progress = "100" if status == JobStatus.successful else "1"
 
     return cast(
         JobDict,
@@ -447,7 +449,7 @@ def job_from_k8s(job: k8s_client.V1Job, message: Optional[str]) -> JobDict:
             "status": status.value,
             "mimetype": None,  # we don't know this in general
             "message": message if message else "",
-            "progress": "1",  # default values in case we don't get them from metadata
+            "progress": default_progress,
             "job_end_datetime": (
                 completion_time.strftime(DATETIME_FORMAT) if completion_time else None
             ),

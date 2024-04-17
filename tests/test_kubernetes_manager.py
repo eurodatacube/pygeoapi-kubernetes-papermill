@@ -296,3 +296,12 @@ def test_job_params_contain_executed_notebook():
     job_dict = job_from_k8s(job, message="")
     parameters = json.loads(job_dict["parameters"])
     assert parameters["executed-notebook"] == "extra/nb.ipynb"
+
+
+def test_successful_job_has_100_progress():
+    job = k8s_client.V1Job(
+        metadata=k8s_client.V1ObjectMeta(),
+        status=k8s_client.V1JobStatus(succeeded=1),
+    )
+    job_dict = job_from_k8s(job, message="")
+    assert job_dict['progress'] == '100'
