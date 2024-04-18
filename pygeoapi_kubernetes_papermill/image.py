@@ -130,7 +130,7 @@ class ContainerImageKubernetesProcessor(
                     setup_byoa_results_dir_cmd(
                         parent_of_subdir=PurePath("/full-results-pvc"),
                         subdir=requested.result_data_directory,
-                        result_data_path=PurePath("/output"),
+                        result_data_path=PurePath("/output-byoa"),
                         job_name=job_name,
                     )
                     if requested.result_data_directory
