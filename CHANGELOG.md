@@ -1,5 +1,6 @@
 ## 1.2.3
 * Disallow custom images if now allowed regex is specified
+* Minor changes for image processor
 
 ## 1.2.1, 1.2.2
 * Setup fixes
