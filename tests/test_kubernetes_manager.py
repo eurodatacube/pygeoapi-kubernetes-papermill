@@ -27,23 +27,25 @@
 #
 # =================================================================
 
-from pygeoapi.util import JobStatus, RequestedProcessExecutionMode
+from contextlib import contextmanager
 import json
 import pytest
 from unittest import mock
 from kubernetes import client as k8s_client
 
+from pygeoapi.util import JobStatus, RequestedProcessExecutionMode, Subscriber
 from pygeoapi_kubernetes_papermill import (
     KubernetesManager,
     PapermillNotebookKubernetesProcessor,
 )
 from pygeoapi_kubernetes_papermill.kubernetes import (
     job_from_k8s,
+    _send_pending_notifications,
 )
 
 
-@pytest.fixture()
-def mock_list_jobs(k8s_job):
+@contextmanager
+def mock_list_jobs_with(k8s_job):
     with mock.patch(
         "pygeoapi_kubernetes_papermill."
         "kubernetes.k8s_client.BatchV1Api.list_namespaced_job",
@@ -53,13 +55,15 @@ def mock_list_jobs(k8s_job):
 
 
 @pytest.fixture()
+def mock_list_jobs(k8s_job):
+    with mock_list_jobs_with(k8s_job):
+        yield
+
+
+@pytest.fixture()
 def mock_list_jobs_accepted(k8s_job: k8s_client.V1Job):
     k8s_job.status = k8s_client.V1JobStatus()
-    with mock.patch(
-        "pygeoapi_kubernetes_papermill."
-        "kubernetes.k8s_client.BatchV1Api.list_namespaced_job",
-        return_value=k8s_client.V1JobList(items=[k8s_job]),
-    ):
+    with mock_list_jobs_with(k8s_job):
         yield
 
 
@@ -69,6 +73,15 @@ def mock_create_job():
         "pygeoapi_kubernetes_papermill."
         "kubernetes.k8s_client.BatchV1Api.create_namespaced_job",
         return_value=None,
+    ) as mocker:
+        yield mocker
+
+
+@pytest.fixture()
+def mock_patch_job():
+    with mock.patch(
+        "pygeoapi_kubernetes_papermill."
+        "kubernetes.k8s_client.BatchV1Api.patch_namespaced_job",
     ) as mocker:
         yield mocker
 
@@ -147,7 +160,7 @@ def mock_wait_for_result_file():
 
 @pytest.fixture()
 def manager(mock_k8s_base, papermill_processor) -> KubernetesManager:
-    man = KubernetesManager({"name": "kman"})
+    man = KubernetesManager({"name": "kman", "skip_k8s_setup": True})
     man.get_processor = lambda *args, **kwargs: papermill_processor
     return man
 
@@ -213,6 +226,11 @@ def test_execute_process_starts_async_job(
         desired_job_id=job_id,
         data_dict={"notebook": "a.ipynb"},
         execution_mode=RequestedProcessExecutionMode.respond_async,
+        subscriber=Subscriber(
+            success_uri="https://example.com/success",
+            failed_uri="https://example.com/failed",
+            in_progress_uri=None,
+        ),
     )
     assert result == (
         "abc",
@@ -225,6 +243,14 @@ def test_execute_process_starts_async_job(
     job: k8s_client.V1Job = mock_create_job.mock_calls[0][2]["body"]
     assert job_id in job.metadata.name
     assert job.metadata.annotations["pygeoapi.io/identifier"] == job_id
+    assert (
+        job.metadata.annotations["pygeoapi.io/success-uri"]
+        == "https://example.com/success"
+    )
+    assert (
+        job.metadata.annotations["pygeoapi.io/failed-uri"]
+        == "https://example.com/failed"
+    )
 
 
 def test_get_jobs_handles_container_status_null(
@@ -304,4 +330,39 @@ def test_successful_job_has_100_progress():
         status=k8s_client.V1JobStatus(succeeded=1),
     )
     job_dict = job_from_k8s(job, message="")
-    assert job_dict['progress'] == '100'
+    assert job_dict["progress"] == "100"
+
+
+def test_success_notification_is_sent_for_successful_job(k8s_job, mock_patch_job):
+    k8s_job.metadata.annotations["pygeoapi.io/success-uri"] = "https://www.example.com"
+    with mock_list_jobs_with(k8s_job), mock.patch(
+        "pygeoapi_kubernetes_papermill.kubernetes.requests.post"
+    ) as mock_post:
+        _send_pending_notifications("mynamespace")
+
+    mock_post.assert_called_once()
+    mock_patch_job.assert_called_once()
+
+
+def test_success_notification_only_sent_once(k8s_job):
+    k8s_job.metadata.annotations["pygeoapi.io/success-uri"] = "https://www.example.com"
+    k8s_job.metadata.annotations["pygeoapi.io/success-sent"] = "something"
+    with mock_list_jobs_with(k8s_job), mock.patch(
+        "pygeoapi_kubernetes_papermill.kubernetes.requests.post"
+    ) as mock_post:
+        _send_pending_notifications("mynamespace")
+
+    mock_post.assert_not_called()
+
+
+def test_failure_notification_is_sent_for_failing_job(k8s_job_failed, mock_patch_job):
+    k8s_job_failed.metadata.annotations[
+        "pygeoapi.io/failed-uri"
+    ] = "https://www.example.com"
+    with mock_list_jobs_with(k8s_job_failed), mock.patch(
+        "pygeoapi_kubernetes_papermill.kubernetes.requests.post"
+    ) as mock_post:
+        _send_pending_notifications("mynamespace")
+
+    mock_post.assert_called_once()
+    mock_patch_job.assert_called_once()

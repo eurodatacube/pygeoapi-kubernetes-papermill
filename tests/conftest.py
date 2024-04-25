@@ -27,6 +27,7 @@
 #
 # =================================================================
 
+from copy import deepcopy
 import datetime
 from kubernetes import client as k8s_client
 import pytest
@@ -67,6 +68,15 @@ def k8s_job() -> k8s_client.V1Job:
             succeeded=1, completion_time=datetime.datetime(2020, 1, 1, 4, 0)
         ),
     )
+
+
+@pytest.fixture()
+def k8s_job_failed(k8s_job: k8s_client.V1Job) -> k8s_client.V1Job:
+    failed_job = deepcopy(k8s_job)
+    failed_job.status.succeeded = 0
+    failed_job.status.failed = 1
+    failed_job.status.conditions = []
+    return failed_job
 
 
 @pytest.fixture()

@@ -30,19 +30,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from http import HTTPStatus
 import json
 import logging
 import re
 import time
-from typing import Optional, Any, TypedDict, cast
+from threading import Thread
+from typing import Literal, Optional, Any, TypedDict, cast
 import os
 
 from kubernetes import client as k8s_client, config as k8s_config
 import kubernetes.client.rest
+import requests
 
-from pygeoapi.util import JobStatus
+from pygeoapi.util import JobStatus, Subscriber
 from pygeoapi.process.base import (
     BaseProcessor,
     JobNotFoundError,
@@ -98,6 +100,7 @@ class KubernetesManager(BaseManager):
         super().__init__(manager_def)
 
         self.is_async = True
+        self.supports_subscribing = True
 
         if manager_def.get("skip_k8s_setup"):
             # this is virtually only useful for tests
@@ -110,6 +113,17 @@ class KubernetesManager(BaseManager):
                 k8s_config.load_incluster_config()
 
             self.namespace = current_namespace()
+
+            # NOTE: this starts a thread per WSGI_WORKER, which is not optimal
+            # the eoxhub use case uses only 1 worker, so it's trivially fine.
+            # not sure how this can be solved cleanly on different web servers.
+            Thread(
+                group=None,
+                target=job_babysitter,
+                daemon=True,
+                name="JobBabysitter",
+                kwargs={"namespace": self.namespace},
+            ).start()
 
         self.batch_v1 = k8s_client.BatchV1Api()
         self.core_api = k8s_client.CoreV1Api()
@@ -255,7 +269,11 @@ class KubernetesManager(BaseManager):
         return True
 
     def _execute_handler_sync(
-        self, p: BaseProcessor, job_id, data_dict: dict
+        self,
+        p: BaseProcessor,
+        job_id,
+        data_dict: dict,
+        subscriber: Optional[Subscriber] = None,
     ) -> tuple[Optional[str], Optional[Any], JobStatus]:
         """
         Synchronous execution handler
@@ -266,7 +284,9 @@ class KubernetesManager(BaseManager):
 
         :returns: tuple of MIME type, response payload and status
         """
-        self._execute_handler_async(p=p, job_id=job_id, data_dict=data_dict)
+        self._execute_handler_async(
+            p=p, job_id=job_id, data_dict=data_dict, subscriber=subscriber
+        )
 
         while True:
             # TODO: investigate if list_namespaced_job(watch=True) can be used here
@@ -286,7 +306,11 @@ class KubernetesManager(BaseManager):
         return (mimetype, result, status)
 
     def _execute_handler_async(
-        self, p: KubernetesProcessor, job_id, data_dict
+        self,
+        p: KubernetesProcessor,
+        job_id,
+        data_dict,
+        subscriber: Optional[Subscriber] = None,
     ) -> tuple[str, dict, JobStatus]:
         """
         In practise k8s jobs are always async.
@@ -307,9 +331,14 @@ class KubernetesManager(BaseManager):
         annotations = {
             "identifier": job_id,
             "process_id": p.metadata.get("id"),
-            "job_start_datetime": datetime.utcnow().strftime(DATETIME_FORMAT),
+            "job_start_datetime": now_str(),
             **job_pod_spec.extra_annotations,
         }
+        if subscriber:
+            if subscriber.success_uri:
+                annotations["success-uri"] = subscriber.success_uri
+            if subscriber.failed_uri:
+                annotations["failed-uri"] = subscriber.failed_uri
 
         job = k8s_client.V1Job(
             api_version="batch/v1",
@@ -487,6 +516,68 @@ def get_completion_time(job: k8s_client.V1Job, status: JobStatus) -> Optional[da
 def current_namespace():
     # getting the current namespace like this is documented, so it should be fine:
     # https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/
-
-    # TODO: when using user namespace, use uuid by default here
     return open("/var/run/secrets/kubernetes.io/serviceaccount/namespace").read()
+
+
+def job_babysitter(namespace: str) -> None:
+    while True:
+        _send_pending_notifications(namespace=namespace)
+        time.sleep(60)
+
+
+def _send_pending_notifications(namespace: str):
+    LOGGER.critical("Sending pending job notifications")
+
+    def _do_send(status: Literal["success", "failed"]):
+        batch_v1 = k8s_client.BatchV1Api()
+
+        already_sent_key = format_annotation_key(f"{status}-sent")
+        uri_key = format_annotation_key(f"{status}-uri")
+        for relevant_job in get_jobs_by_status(namespace, status):
+            annotations = relevant_job.metadata.annotations
+
+            if (url := annotations.get(uri_key)) and not annotations.get(
+                already_sent_key
+            ):
+                LOGGER.info(f"Found {status} job {relevant_job.metadata.name}, sending")
+
+                batch_v1.patch_namespaced_job(
+                    name=relevant_job.metadata.name,
+                    namespace=namespace,
+                    body={"metadata": {"annotations": {already_sent_key: now_str()}}},
+                )
+
+                requests.post(
+                    url,
+                    json=job_from_k8s(relevant_job, message=""),
+                )
+
+    _do_send(status="success")
+    _do_send(status="failed")
+
+
+def get_jobs_by_status(
+    namespace: str,
+    status: Literal["success", "failed"],
+) -> list[k8s_client.V1Job]:
+    batch_v1 = k8s_client.BatchV1Api()
+
+    if status == "success":
+        return batch_v1.list_namespaced_job(
+            namespace=namespace, field_selector="status.successful==1"
+        ).items
+    elif status == "failed":
+        # k8s doesn't support retrieving failed jobs,
+        # we have to implement it ourselves :'(
+        # https://github.com/kubernetes/kubernetes/issues/86352
+        # https://github.com/kubernetes/kubernetes/pull/87863
+        jobs = batch_v1.list_namespaced_job(
+            namespace=namespace, field_selector="status.successful==0"
+        ).items
+        return [
+            job for job in jobs if job_status_from_k8s(job.status) == JobStatus.failed
+        ]
+
+
+def now_str() -> str:
+    return datetime.now(timezone.utc).strftime(DATETIME_FORMAT)
