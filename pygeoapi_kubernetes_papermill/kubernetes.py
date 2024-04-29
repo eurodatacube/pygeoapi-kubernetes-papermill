@@ -526,8 +526,6 @@ def job_babysitter(namespace: str) -> None:
 
 
 def _send_pending_notifications(namespace: str):
-    LOGGER.critical("Sending pending job notifications")
-
     def _do_send(status: Literal["success", "failed"]):
         batch_v1 = k8s_client.BatchV1Api()
 
