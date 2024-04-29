@@ -1,3 +1,6 @@
+## 1.2.4
+* Implement failed/success notifications
+
 ## 1.2.3
 * Disallow custom images if now allowed regex is specified
 * Minor changes for image processor
