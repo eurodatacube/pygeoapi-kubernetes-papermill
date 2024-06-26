@@ -1,3 +1,6 @@
+## 1.2.5
+Save execution parameters for image processes
+
 ## 1.2.4
 * Implement failed/success notifications
 

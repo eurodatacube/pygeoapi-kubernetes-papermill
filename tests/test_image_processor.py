@@ -114,3 +114,10 @@ def test_command_is_combined_with_results_dir_setup(
     assert command[0] == "bash"
     assert command[3].endswith("&& true")
     assert 'mkdir "/full-results-pvc/my-run-r0000";' in command[3]
+
+
+def test_env_parameters_are_saved_as_json(create_processor, create_pod_kwargs_with):
+    spec = create_processor().create_job_pod_spec(
+        **create_pod_kwargs_with({"parameters_env": {"a": "b"}})
+    )
+    assert spec.extra_annotations["parameters"] == '{"a": "b"}'

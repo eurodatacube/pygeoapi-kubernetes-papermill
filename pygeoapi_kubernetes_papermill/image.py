@@ -28,6 +28,7 @@
 # =================================================================
 
 from dataclasses import dataclass
+import json
 import logging
 from pathlib import PurePath
 from pygeoapi.util import ProcessExecutionMode
@@ -159,7 +160,9 @@ class ContainerImageKubernetesProcessor(
                 **extra_podspec,
                 enable_service_links=False,
             ),
-            extra_annotations={},
+            extra_annotations={
+                "parameters": json.dumps(requested.parameters_env)[:8000]
+            },
             extra_labels={"runtime": "fargate"} if requested.run_on_fargate else {},
         )
 
