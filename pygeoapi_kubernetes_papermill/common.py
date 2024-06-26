@@ -98,6 +98,7 @@ class ContainerKubernetesProcessorMixin:
     extra_volume_mounts: list
     allow_fargate: bool
     tolerations: list
+    secrets: list[dict[str, str]]
 
     def _extra_podspec(self, requested: Any):
         extra_podspec: dict[str, Any] = {
@@ -164,6 +165,14 @@ class ContainerKubernetesProcessorMixin:
                     mount_path=self.s3["mount_path"],
                     s3_url=self.s3["s3_url"],
                 )
+
+            access_functions = {
+                "env": extra_secret_env_config,
+                "mount": extra_secret_mount_config,
+            }
+            for num, secret in enumerate(self.secrets):
+                access_fun = access_functions[secret.get("access", "mount")]
+                yield access_fun(secret_name=secret["name"], num=num)
 
         return functools.reduce(operator.add, extra_configs(), ExtraConfig())
 
@@ -311,4 +320,32 @@ def setup_byoa_results_dir_cmd(
         f'if [ ! -d "{path_to_subdir}" ] ; then mkdir "{path_to_subdir}"; fi &&  '
         f'ln -sf --no-dereference "{path_to_subdir}" "{result_data_path}" && '
         # NOTE: no-dereference is useful if home is a persisted mounted volume
+    )
+
+
+def extra_secret_mount_config(secret_name: str, num: int) -> ExtraConfig:
+    volume_name = f"secret-{num}"
+    return ExtraConfig(
+        volumes=[
+            k8s_client.V1Volume(
+                secret=k8s_client.V1SecretVolumeSource(secret_name=secret_name),
+                name=volume_name,
+            )
+        ],
+        volume_mounts=[
+            k8s_client.V1VolumeMount(
+                mount_path=str(PurePath("/secret") / secret_name),
+                name=volume_name,
+            )
+        ],
+    )
+
+
+def extra_secret_env_config(secret_name: str, num: int) -> ExtraConfig:
+    return ExtraConfig(
+        env_from=[
+            k8s_client.V1EnvFromSource(
+                secret_ref=k8s_client.V1SecretEnvSource(name=secret_name)
+            )
+        ]
     )

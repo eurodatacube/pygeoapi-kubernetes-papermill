@@ -56,6 +56,7 @@ def create_processor() -> Callable[[Optional[dict]], ContainerImageKubernetesPro
                 "tolerations": [],
                 "allow_fargate": False,
                 "parameters_env": {},
+                "secrets": [],
                 **(def_override if def_override else {}),
             }
         )
@@ -121,3 +122,11 @@ def test_env_parameters_are_saved_as_json(create_processor, create_pod_kwargs_wi
         **create_pod_kwargs_with({"parameters_env": {"a": "b"}})
     )
     assert spec.extra_annotations["parameters"] == '{"a": "b"}'
+
+
+def test_secrets_can_be_injected_via_env_vars(create_processor, create_pod_kwargs):
+    spec = create_processor(
+        {"secrets": [{"name": "secA", "access": "env"}]}
+    ).create_job_pod_spec(**create_pod_kwargs)
+
+    assert "secA" == spec.pod_spec.containers[0].env_from[0].secret_ref.name

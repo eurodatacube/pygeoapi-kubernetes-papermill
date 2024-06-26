@@ -387,14 +387,6 @@ class PapermillNotebookKubernetesProcessor(
                 for num, extra_pvc in enumerate(self.extra_pvcs)
             )
 
-            access_functions = {
-                "env": extra_secret_env_config,
-                "mount": extra_secret_mount_config,
-            }
-            for num, secret in enumerate(self.secrets):
-                access_fun = access_functions[secret.get("access", "mount")]
-                yield access_fun(secret_name=secret["name"], num=num)
-
             if self.auto_mount_secrets:
                 yield extra_auto_secrets()
 
@@ -616,34 +608,6 @@ def extra_pvc_config(extra_pvc: dict) -> ExtraConfig:
                 sub_path=extra_pvc.get("sub_path"),
             )
         ],
-    )
-
-
-def extra_secret_mount_config(secret_name: str, num: int) -> ExtraConfig:
-    volume_name = f"secret-{num}"
-    return ExtraConfig(
-        volumes=[
-            k8s_client.V1Volume(
-                secret=k8s_client.V1SecretVolumeSource(secret_name=secret_name),
-                name=volume_name,
-            )
-        ],
-        volume_mounts=[
-            k8s_client.V1VolumeMount(
-                mount_path=str(PurePath("/secret") / secret_name),
-                name=volume_name,
-            )
-        ],
-    )
-
-
-def extra_secret_env_config(secret_name: str, num: int) -> ExtraConfig:
-    return ExtraConfig(
-        env_from=[
-            k8s_client.V1EnvFromSource(
-                secret_ref=k8s_client.V1SecretEnvSource(name=secret_name)
-            )
-        ]
     )
 
 

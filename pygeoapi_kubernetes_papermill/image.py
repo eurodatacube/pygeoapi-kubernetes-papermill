@@ -104,6 +104,7 @@ class ContainerImageKubernetesProcessor(
         self.tolerations: list = processor_def["tolerations"]
         self.allow_fargate: bool = processor_def["allow_fargate"]
         self.parameters_env: dict[str, str] = processor_def["parameters_env"]
+        self.secrets = processor_def["secrets"]
 
     def create_job_pod_spec(
         self,
@@ -145,6 +146,7 @@ class ContainerImageKubernetesProcessor(
                 to_k8s_env(requested.parameters_env) if requested.parameters_env else []
             )
             + to_k8s_env(self.parameters_env),
+            env_from=extra_config.env_from,
         )
 
         return KubernetesProcessor.JobPodSpec(

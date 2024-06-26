@@ -1,5 +1,6 @@
 ## 1.2.5
-Save execution parameters for image processes
+* Save execution parameters for image processes
+* Allow mounting secrets as env or file for image processes
 
 ## 1.2.4
 * Implement failed/success notifications
