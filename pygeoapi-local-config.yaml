@@ -1,0 +1,93 @@
+server:
+    bind:
+        host: 0.0.0.0
+        port: 80
+    url: http://localhost:5000/
+    mimetype: application/json; charset=UTF-8
+    encoding: utf-8
+    language: en-US
+    # cors: true
+    pretty_print: true
+    limit: 10
+    map:
+        url: https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png
+        attribution: '<a href="https://wikimediafoundation.org/wiki/Maps_Terms_of_Use">Wikimedia maps</a> | Map data &copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+    # ogc_schemas_location: /opt/schemas.opengis.net
+
+    manager:
+        name: pygeoapi_kubernetes_papermill.KubernetesManager
+        skip_k8s_setup: true
+
+logging:
+    level: DEBUG
+    #logfile: /tmp/pygeoapi.log
+
+metadata:
+    identification:
+        title: pygeoapi default instance
+        description: pygeoapi provides an API to geospatial data
+        keywords:
+            - geospatial
+            - data
+            - api
+        keywords_type: theme
+        terms_of_service: https://creativecommons.org/licenses/by/4.0/
+        url: http://localhost:5000/
+    license:
+        name: CC-BY 4.0 license
+        url: https://creativecommons.org/licenses/by/4.0/
+    provider:
+        name: Organization Name
+        url: https://pygeoapi.io
+    contact:
+        name: Lastname, Firstname
+        position: Position Title
+        address: Mailing Address
+        city: City
+        stateorprovince: Administrative Area
+        postalcode: Zip or Postal Code
+        country: Country
+        phone: +xx-xxx-xxx-xxxx
+        fax: +xx-xxx-xxx-xxxx
+        email: you@example.org
+        url: Contact URL
+        hours: Mo-Fr 08:00-17:00
+        instructions: During hours of service. Off on weekends.
+        role: pointOfContact
+
+resources:
+  execute-notebook:
+    type: process
+    processor:
+      name: pygeoapi_kubernetes_papermill.PapermillNotebookKubernetesProcessor
+      default_image: "test-image"
+      output_directory: "/home/jovyan/job-output"
+      allowed_images_regex: ""
+      image_pull_secret: ""
+      extra_volumes: []
+      extra_volume_mounts: []
+      log_output: True
+      default_node_purpose: ""
+      allowed_node_purposes_regex: ""
+      tolerations: []
+      job_service_account: ""
+      allow_fargate: False
+      auto_mount_secrets: False
+      node_purpose_label_key: ""
+      run_as_user: None
+      run_as_group: None
+      extra_resource_limits: {}
+      extra_resource_requests: {}
+      conda_store_groups: []
+      s3:
+        bucket_name: ""
+        secret_name: ""
+        s3_url: ""
+      home_volume_claim_name: "user"
+      extra_pvcs: []
+      jupyter_base_url: "https://edc-jupyter.hub.eox.at"
+      secrets: []
+      checkout_git_repo:
+        enabled: false
+        url: "test"
+        secret_name: pygeoapi-git

@@ -14,3 +14,6 @@ bash: build
 
 upgrade-packages:
 	docker run --volume `pwd`:/pkp --rm --user 0 --entrypoint bash -it pkp:1 -c "python3 -m pip install pip-upgrader && pip-upgrade --skip-package-installation"
+
+run:
+	docker run --volume `pwd`:/pkp --volume `pwd`/pygeoapi-local-config.yaml:/pygeoapi/local.config.yml -p 5000:80 -it pkp:1
