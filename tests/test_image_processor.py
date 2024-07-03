@@ -52,6 +52,7 @@ def create_processor() -> Callable[[Optional[dict]], ContainerImageKubernetesPro
                 "extra_volume_mounts": [],
                 "node_purpose_label_key": "",
                 "default_node_purpose": "",
+                "image_pull_secret": "",
                 "allowed_node_purposes_regex": "",
                 "tolerations": [],
                 "allow_fargate": False,

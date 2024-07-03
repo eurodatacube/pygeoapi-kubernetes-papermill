@@ -1,3 +1,6 @@
+## 1.2.7
+* Add image pull secret for image processor
+
 ## 1.2.6
 * Allow defining process properties from config for ImageProcessor
 

@@ -99,7 +99,7 @@ class ContainerImageKubernetesProcessor(
         self.default_image: str = processor_def["default_image"]
         self.command: str = processor_def["command"]
         self.allowed_images_regex: str = processor_def["allowed_images_regex"]
-        # self.image_pull_secret: str = processor_def["image_pull_secret"]
+        self.image_pull_secret: str = processor_def["image_pull_secret"]
         self.s3: Optional[dict[str, str]] = processor_def.get("s3")
         self.extra_volumes: list = processor_def["extra_volumes"]
         self.extra_volume_mounts: list = processor_def["extra_volume_mounts"]
@@ -127,6 +127,11 @@ class ContainerImageKubernetesProcessor(
 
         extra_config = self._extra_configs()
         extra_podspec = self._extra_podspec(requested)
+
+        if self.image_pull_secret:
+            extra_podspec["image_pull_secrets"] = [
+                k8s_client.V1LocalObjectReference(name=self.image_pull_secret)
+            ]
 
         image_container = k8s_client.V1Container(
             name="notebook",
