@@ -1,3 +1,6 @@
+## 1.2.6
+* Allow defining process properties from config for ImageProcessor
+
 ## 1.2.5
 * Save execution parameters for image processes
 * Allow mounting secrets as env or file for image processes
