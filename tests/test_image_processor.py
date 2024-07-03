@@ -130,3 +130,18 @@ def test_secrets_can_be_injected_via_env_vars(create_processor, create_pod_kwarg
     ).create_job_pod_spec(**create_pod_kwargs)
 
     assert "secA" == spec.pod_spec.containers[0].env_from[0].secret_ref.name
+
+
+def test_generic_process_metadata_is_used_from_config(create_processor):
+    proc = create_processor(
+        {
+            "id": "m1606",
+            "title": "my-proc1606",
+            "version": "0.0.86",
+            "inputs": [{"minOccurs": 3}],
+        }
+    )
+    assert proc.metadata["id"] == "m1606"
+    assert proc.metadata["title"] == "my-proc1606"
+    assert proc.metadata["version"] == "0.0.86"
+    assert proc.metadata["inputs"][0]["minOccurs"] == 3

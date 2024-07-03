@@ -27,6 +27,7 @@
 #
 # =================================================================
 
+import copy
 from dataclasses import dataclass
 import json
 import logging
@@ -87,7 +88,13 @@ class ContainerImageKubernetesProcessor(
     ContainerKubernetesProcessorMixin, KubernetesProcessor
 ):
     def __init__(self, processor_def: dict) -> None:
-        super().__init__(processor_def, PROCESS_METADATA)
+        metadata = copy.deepcopy(PROCESS_METADATA)
+        # If the process defines this, we are basically in generic modoe
+        for generic_process_key in ["id", "title", "version", "inputs"]:
+            if generic_process_value := processor_def.get(generic_process_key):
+                metadata[generic_process_key] = generic_process_value
+
+        super().__init__(processor_def, metadata)
 
         self.default_image: str = processor_def["default_image"]
         self.command: str = processor_def["command"]
