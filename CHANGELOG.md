@@ -1,3 +1,6 @@
+## 1.3.0
+* Save all process configuration as parameters, not just input values
+
 ## 1.2.7
 * Add image pull secret for image processor
 

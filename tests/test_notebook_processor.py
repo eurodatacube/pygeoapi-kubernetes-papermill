@@ -107,7 +107,7 @@ def papermill_gpu_processor() -> PapermillNotebookKubernetesProcessor:
 @pytest.fixture()
 def create_pod_kwargs() -> Dict:
     return {
-        "data": {"notebook": "a.ipynb", "parameters": ""},
+        "data": {"notebook": "a.ipynb"},
         "job_name": "my-job",
     }
 
@@ -146,12 +146,14 @@ def test_json_params_are_b64_encoded(papermill_processor, create_pod_kwargs_with
     )
 
 
-def test_yaml_parameters_are_saved_as_json(papermill_processor, create_pod_kwargs_with):
-    payload = b64encode(b"a: 3").decode()
+def test_execution_parameters_are_saved(papermill_processor, create_pod_kwargs_with):
     job_pod_spec = papermill_processor.create_job_pod_spec(
-        **create_pod_kwargs_with({"parameters": payload})
+        **create_pod_kwargs_with({"parameters_json": {"a": 3}})
     )
-    assert job_pod_spec.extra_annotations["parameters"] == '{"a": 3}'
+    assert json.loads(job_pod_spec.extra_annotations["parameters"]) == {
+        "notebook": "a.ipynb",
+        "parameters_json": {"a": 3},
+    }
 
 
 def test_custom_output_file_overwrites_default(

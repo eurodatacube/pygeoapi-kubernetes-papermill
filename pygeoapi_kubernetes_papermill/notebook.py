@@ -44,7 +44,6 @@ import scrapbook
 import scrapbook.scraps
 from typing import Iterable, Optional, Any
 from typed_json_dataclass import TypedJsonMixin
-import yaml
 
 from kubernetes import client as k8s_client
 
@@ -336,18 +335,12 @@ class PapermillNotebookKubernetesProcessor(
             ),
             env_from=extra_config.env_from,
         )
-        # json is much cheaper to parse, and we accept both b64-yaml and
-        # json as input, so save as json
-        parameters_str = b64decode(requested.parameters.encode()).decode()
         extra_annotations = {
             "result-notebook": str(output_notebook),
             "executed-notebook": str(requested.notebook),
-        } | (
             # save parameters but make sure the string is not too long
-            {"parameters": json.dumps(yaml.safe_load(parameters_str))[:8000]}
-            if requested.parameters
-            else {}
-        )
+            "parameters": json.dumps(data)[:8000],
+        }
 
         return KubernetesProcessor.JobPodSpec(
             pod_spec=k8s_client.V1PodSpec(
