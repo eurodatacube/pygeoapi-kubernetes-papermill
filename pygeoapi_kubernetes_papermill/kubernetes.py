@@ -44,7 +44,11 @@ from kubernetes import client as k8s_client, config as k8s_config
 import kubernetes.client.rest
 import requests
 
-from pygeoapi.util import JobStatus, Subscriber
+from pygeoapi.util import (
+    JobStatus,
+    Subscriber,
+    RequestedResponse,
+)
 from pygeoapi.process.base import (
     BaseProcessor,
     JobNotFoundError,
@@ -178,8 +182,8 @@ class KubernetesManager(BaseManager):
 
         :returns: add job result
         """
-
-        raise NotImplementedError("For k8s, add_job is implied by executing the job")
+        # For k8s, add_job is implied by executing the job
+        return
 
     def update_job(self, processid, job_id, update_dict):
         """
@@ -273,7 +277,9 @@ class KubernetesManager(BaseManager):
         p: BaseProcessor,
         job_id,
         data_dict: dict,
+        requested_outputs: Optional[dict] = None,
         subscriber: Optional[Subscriber] = None,
+        requested_response: Optional[RequestedResponse] = RequestedResponse.raw.value,  # noqa
     ) -> tuple[Optional[str], Optional[Any], JobStatus]:
         """
         Synchronous execution handler
@@ -310,7 +316,9 @@ class KubernetesManager(BaseManager):
         p: KubernetesProcessor,
         job_id,
         data_dict,
+        requested_outputs: Optional[dict] = None,
         subscriber: Optional[Subscriber] = None,
+        requested_response: Optional[RequestedResponse] = RequestedResponse.raw.value,  # noqa
     ) -> tuple[str, dict, JobStatus]:
         """
         In practise k8s jobs are always async.

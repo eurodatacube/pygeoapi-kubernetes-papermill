@@ -1,4 +1,4 @@
-From b7c955c9ef684bc152e8c44005f5f5df22f79b0f Mon Sep 17 00:00:00 2001
+From e8773d72f0b276467ac847cce55bb925b9e28a22 Mon Sep 17 00:00:00 2001
 From: Bernhard Mallinger <bernhard.mallinger@eox.at>
 Date: Wed, 12 Jul 2023 10:45:55 +0200
 Subject: [PATCH] Allow specifying `job_id` via request parameter
@@ -14,51 +14,56 @@ so I'd prefer to pass the id via POST data. This way we can treat it as
 suggestion, or possibly as a template from which the server derives the
 actual id.
 ---
- pygeoapi/api.py                  | 2 ++
- pygeoapi/process/manager/base.py | 3 ++-
- 2 files changed, 4 insertions(+), 1 deletion(-)
+ pygeoapi/api/processes.py        | 5 ++++-
+ pygeoapi/process/manager/base.py | 5 +++--
+ 2 files changed, 7 insertions(+), 3 deletions(-)
 
-diff --git pygeoapi/api.py pygeoapi/api.py
-index 899f5ea..f410cd8 100644
---- pygeoapi/api.py
-+++ pygeoapi/api.py
-@@ -3492,6 +3492,7 @@ class API:
+diff --git pygeoapi/api/processes.py pygeoapi/api/processes.py
+index e95d90a..f87f092 100644
+--- pygeoapi/api/processes.py
++++ pygeoapi/api/processes.py
+@@ -375,6 +375,7 @@ def execute_process(api: API, request: APIRequest,
  
-         data_dict = data.get('inputs', {})
-         LOGGER.debug(data_dict)
-+        desired_job_id = data.get("job_id")
+     data_dict = data.get('inputs', {})
+     LOGGER.debug(data_dict)
++    desired_job_id = data.get("job_id")
  
-         subscriber = None
-         subscriber_dict = data.get('subscriber')
-@@ -3523,6 +3524,7 @@ class API:
-                 data_dict,
-                 execution_mode=execution_mode,
-                 subscriber=subscriber,
-+                desired_job_id=desired_job_id,
-             )
-             job_id, mime_type, outputs, status, additional_headers = result
-             headers.update(additional_headers or {})
+     requested_outputs = data.get('outputs')
+     LOGGER.debug(f'outputs: {requested_outputs}')
+@@ -410,7 +411,9 @@ def execute_process(api: API, request: APIRequest,
+             process_id, data_dict, execution_mode=execution_mode,
+             requested_outputs=requested_outputs,
+             subscriber=subscriber,
+-            requested_response=requested_response)
++            requested_response=requested_response,
++            desired_job_id=desired_job_id,
++        )
+         job_id, mime_type, outputs, status, additional_headers = result
+         headers.update(additional_headers or {})
+ 
 diff --git pygeoapi/process/manager/base.py pygeoapi/process/manager/base.py
-index 3149e73..1c80abd 100644
+index f0d3148..7e1fe96 100644
 --- pygeoapi/process/manager/base.py
 +++ pygeoapi/process/manager/base.py
-@@ -328,6 +328,7 @@ class BaseManager:
-             data_dict: dict,
+@@ -351,7 +351,8 @@ class BaseManager:
              execution_mode: Optional[RequestedProcessExecutionMode] = None,
+             requested_outputs: Optional[dict] = None,
              subscriber: Optional[Subscriber] = None,
+-            requested_response: Optional[RequestedResponse] = RequestedResponse.raw.value  # noqa
++            requested_response: Optional[RequestedResponse] = RequestedResponse.raw.value,  # noqa
 +            desired_job_id: str | None = None,
      ) -> Tuple[str, Any, JobStatus, Optional[Dict[str, str]]]:
          """
          Default process execution handler
-@@ -345,7 +346,7 @@ class BaseManager:
+@@ -379,7 +380,7 @@ class BaseManager:
                    response
          """
  
 -        job_id = str(uuid.uuid1())
 +        job_id = desired_job_id or str(uuid.uuid1())
          processor = self.get_processor(process_id)
-         if execution_mode == RequestedProcessExecutionMode.respond_async:
-             job_control_options = processor.metadata.get(
+         processor.set_job_id(job_id)
+         extra_execute_handler_parameters = {
 -- 
 2.34.1
 

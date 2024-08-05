@@ -1,4 +1,4 @@
-FROM eurodatacube/pygeoapi:latest-20240318
+FROM eurodatacube/pygeoapi:job-pagination-4aba7ff-20240805
 
 RUN apt update \
   && apt --no-install-recommends -y install patch vim-tiny
@@ -9,9 +9,9 @@ COPY async-as-default.patch \
     support-old-jobs-endpoint.patch \
     ./
 
-RUN patch -p0 < async-as-default.patch \
-    && patch -p0 < allow-specifying-job_id-via-request-parameter.patch \
-    && patch -p0 < support-old-jobs-endpoint.patch
+RUN patch -p0 < async-as-default.patch 
+RUN patch -p0 < allow-specifying-job_id-via-request-parameter.patch 
+RUN patch -p0 < support-old-jobs-endpoint.patch
 
 RUN mkdir /pkp
 WORKDIR /pkp

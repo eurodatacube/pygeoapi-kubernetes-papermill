@@ -225,12 +225,12 @@ def test_execute_process_starts_async_job(
         process_id="papermill-processor",
         desired_job_id=job_id,
         data_dict={"notebook": "a.ipynb"},
-        execution_mode=RequestedProcessExecutionMode.respond_async,
         subscriber=Subscriber(
             success_uri="https://example.com/success",
             failed_uri="https://example.com/failed",
             in_progress_uri=None,
         ),
+        execution_mode=RequestedProcessExecutionMode.respond_async,
     )
     assert result == (
         "abc",
@@ -356,9 +356,9 @@ def test_success_notification_only_sent_once(k8s_job):
 
 
 def test_failure_notification_is_sent_for_failing_job(k8s_job_failed, mock_patch_job):
-    k8s_job_failed.metadata.annotations[
-        "pygeoapi.io/failed-uri"
-    ] = "https://www.example.com"
+    k8s_job_failed.metadata.annotations["pygeoapi.io/failed-uri"] = (
+        "https://www.example.com"
+    )
     with mock_list_jobs_with(k8s_job_failed), mock.patch(
         "pygeoapi_kubernetes_papermill.kubernetes.requests.post"
     ) as mock_post:
