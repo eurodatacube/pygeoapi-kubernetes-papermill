@@ -1,3 +1,6 @@
+## 1.4.0
+* Implement pagination
+
 ## 1.3.0
 * Save all process configuration as parameters, not just input values
 

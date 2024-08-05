@@ -90,6 +90,7 @@ class KubernetesProcessor(BaseProcessor):
 JobDict = TypedDict(
     "JobDict",
     {
+        "identifier": str,
         "status": str,
         "result-notebook": str,
         "message": str,
@@ -132,25 +133,38 @@ class KubernetesManager(BaseManager):
         self.batch_v1 = k8s_client.BatchV1Api()
         self.core_api = k8s_client.CoreV1Api()
 
-    def get_jobs(self, status=None) -> list[JobDict]:
+    def get_jobs(self, status=None, limit=None, offset=None) -> list[JobDict]:
         """
         Get process jobs, optionally filtered by status
 
         :param status: job status (accepted, running, successful,
                        failed, results) (default is all)
+        :param limit: number of jobs to return
+        :param offset: pagination offset
 
-        :returns: `list` of jobs (identifier, status, process identifier)
+        :returns: dict of list of jobs (identifier, status, process identifier)
+                  and numberMatched
         """
 
-        k8s_jobs: k8s_client.V1Joblist = self.batch_v1.list_namespaced_job(
-            namespace=self.namespace,
-        )
+        k8s_jobs = [
+            k8s_job
+            for k8s_job in self.batch_v1.list_namespaced_job(
+                namespace=self.namespace,
+            ).items
+            if is_k8s_job_name(k8s_job.metadata.name)
+        ]
+
+        # NOTE: need to paginate before expensive single job serialization
+        if offset:
+            k8s_jobs = k8s_jobs[offset:]
+
+        if limit:
+            k8s_jobs = k8s_jobs[:limit]
+
         # TODO: implement status filter
 
         return [
-            job_from_k8s(k8s_job, self._job_message(k8s_job))
-            for k8s_job in k8s_jobs.items
-            if is_k8s_job_name(k8s_job.metadata.name)
+            job_from_k8s(k8s_job, self._job_message(k8s_job)) for k8s_job in k8s_jobs
         ]
 
     def get_job(self, job_id) -> Optional[JobDict]:

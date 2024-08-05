@@ -80,6 +80,16 @@ def k8s_job_failed(k8s_job: k8s_client.V1Job) -> k8s_client.V1Job:
 
 
 @pytest.fixture()
+def many_k8s_jobs(k8s_job: k8s_client.V1Job) -> list[k8s_client.V1Job]:
+    def create_job(i: int) -> k8s_client.V1Job:
+        new_job = deepcopy(k8s_job)
+        new_job.metadata.annotations["pygeoapi.io/identifier"] = f"job-{i}"
+        return new_job
+
+    return [create_job(i) for i in range(13)]
+
+
+@pytest.fixture()
 def mock_read_job(k8s_job):
     with mock.patch(
         "pygeoapi_kubernetes_papermill."

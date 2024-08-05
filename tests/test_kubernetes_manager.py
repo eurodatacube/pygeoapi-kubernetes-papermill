@@ -45,11 +45,11 @@ from pygeoapi_kubernetes_papermill.kubernetes import (
 
 
 @contextmanager
-def mock_list_jobs_with(k8s_job):
+def mock_list_jobs_with(*args):
     with mock.patch(
         "pygeoapi_kubernetes_papermill."
         "kubernetes.k8s_client.BatchV1Api.list_namespaced_job",
-        return_value=k8s_client.V1JobList(items=[k8s_job]),
+        return_value=k8s_client.V1JobList(items=args),
     ):
         yield
 
@@ -366,3 +366,15 @@ def test_failure_notification_is_sent_for_failing_job(k8s_job_failed, mock_patch
 
     mock_post.assert_called_once()
     mock_patch_job.assert_called_once()
+
+
+def test_kubernetes_manager_handles_pagination(
+    manager: KubernetesManager,
+    mock_list_pods_no_container_status,
+    many_k8s_jobs,
+):
+    with mock_list_jobs_with(*many_k8s_jobs):
+        jobs = manager.get_jobs(offset=3, limit=2)
+
+    assert len(jobs) == 2
+    assert [job["identifier"] for job in jobs] == ["job-3", "job-4"]
