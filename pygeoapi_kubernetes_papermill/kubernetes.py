@@ -133,7 +133,7 @@ class KubernetesManager(BaseManager):
         self.batch_v1 = k8s_client.BatchV1Api()
         self.core_api = k8s_client.CoreV1Api()
 
-    def get_jobs(self, status=None, limit=None, offset=None) -> list[JobDict]:
+    def get_jobs(self, status=None, limit=None, offset=None) -> dict:
         """
         Get process jobs, optionally filtered by status
 
@@ -154,6 +154,8 @@ class KubernetesManager(BaseManager):
             if is_k8s_job_name(k8s_job.metadata.name)
         ]
 
+        number_matched = len(k8s_jobs)
+
         # NOTE: need to paginate before expensive single job serialization
         if offset:
             k8s_jobs = k8s_jobs[offset:]
@@ -163,9 +165,13 @@ class KubernetesManager(BaseManager):
 
         # TODO: implement status filter
 
-        return [
-            job_from_k8s(k8s_job, self._job_message(k8s_job)) for k8s_job in k8s_jobs
-        ]
+        return {
+            "jobs": [
+                job_from_k8s(k8s_job, self._job_message(k8s_job))
+                for k8s_job in k8s_jobs
+            ],
+            "numberMatched": number_matched,
+        }
 
     def get_job(self, job_id) -> Optional[JobDict]:
         """

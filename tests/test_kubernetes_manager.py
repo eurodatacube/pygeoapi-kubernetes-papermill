@@ -260,8 +260,8 @@ def test_get_jobs_handles_container_status_null(
 ):
     # NOTE: this test could be reduced to only test _job_message() if the excessive
     #       mocking causes issues
-    jobs = manager.get_jobs()
-    assert [job["message"] for job in jobs] == [""]
+    job_data = manager.get_jobs()
+    assert [job["message"] for job in job_data["jobs"]] == [""]
 
 
 def test_execute_process_sync_also_returns_mime_type(
@@ -292,9 +292,9 @@ def test_accepted_jobs_show_events(
     mock_list_events,
     manager: KubernetesManager,
 ):
-    jobs = manager.get_jobs()
+    job_data = manager.get_jobs()
 
-    assert jobs[0]["message"] == "last event"
+    assert job_data["jobs"][0]["message"] == "last event"
 
 
 def test_secret_job_annotation_parameters_are_hidden():
@@ -374,7 +374,9 @@ def test_kubernetes_manager_handles_pagination(
     many_k8s_jobs,
 ):
     with mock_list_jobs_with(*many_k8s_jobs):
-        jobs = manager.get_jobs(offset=3, limit=2)
+        job_data = manager.get_jobs(offset=3, limit=2)
 
+    jobs = job_data["jobs"]
     assert len(jobs) == 2
     assert [job["identifier"] for job in jobs] == ["job-3", "job-4"]
+    assert job_data["numberMatched"] == 13

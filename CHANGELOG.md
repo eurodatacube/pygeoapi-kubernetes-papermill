@@ -1,3 +1,6 @@
+## 1.5.1
+* Jobs pagination fix
+
 ## 1.5.0
 * Set autosave-every to 60
 
