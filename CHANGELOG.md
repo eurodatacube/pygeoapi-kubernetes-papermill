@@ -1,3 +1,6 @@
+## 1.5.2
+* Jobs pagination sorting
+
 ## 1.5.1
 * Jobs pagination fix
 

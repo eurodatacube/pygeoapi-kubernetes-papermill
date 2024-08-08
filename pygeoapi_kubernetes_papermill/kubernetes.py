@@ -146,13 +146,21 @@ class KubernetesManager(BaseManager):
                   and numberMatched
         """
 
-        k8s_jobs = [
-            k8s_job
-            for k8s_job in self.batch_v1.list_namespaced_job(
-                namespace=self.namespace,
-            ).items
-            if is_k8s_job_name(k8s_job.metadata.name)
-        ]
+        def get_start_time_from_job(job: k8s_client.V1Job) -> str:
+            key = format_annotation_key("job_start_datetime")
+            return job.metadata.annotations.get(key, "")
+
+        k8s_jobs = sorted(
+            (
+                k8s_job
+                for k8s_job in self.batch_v1.list_namespaced_job(
+                    namespace=self.namespace,
+                ).items
+                if is_k8s_job_name(k8s_job.metadata.name)
+            ),
+            key=get_start_time_from_job,
+            reverse=True,
+        )
 
         number_matched = len(k8s_jobs)
 
