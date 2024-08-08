@@ -1,3 +1,6 @@
+## 1.5.0
+* Set autosave-every to 60
+
 ## 1.4.0
 * Implement pagination
 
