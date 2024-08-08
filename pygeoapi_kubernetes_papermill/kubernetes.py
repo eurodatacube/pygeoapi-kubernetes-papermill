@@ -150,6 +150,9 @@ class KubernetesManager(BaseManager):
             key = format_annotation_key("job_start_datetime")
             return job.metadata.annotations.get(key, "")
 
+        # NOTE: pagination should be pushed to the kubernetes api,
+        #       but it doesn't support regex matching on the job name
+        #       https://github.com/kubernetes-client/python/issues/171#issuecomment-428077215
         k8s_jobs = sorted(
             (
                 k8s_job
