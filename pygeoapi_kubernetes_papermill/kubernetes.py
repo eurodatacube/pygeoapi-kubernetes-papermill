@@ -56,7 +56,7 @@ from pygeoapi.process.base import (
 )
 from pygeoapi.process.manager.base import BaseManager, DATETIME_FORMAT
 
-from .common import is_k8s_job_name, k8s_job_name
+from .common import is_k8s_job_name, k8s_job_name, current_namespace
 
 LOGGER = logging.getLogger(__name__)
 
@@ -550,12 +550,6 @@ def get_completion_time(job: k8s_client.V1Job, status: JobStatus) -> Optional[da
         )
 
     return job.status.completion_time
-
-
-def current_namespace():
-    # getting the current namespace like this is documented, so it should be fine:
-    # https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/
-    return open("/var/run/secrets/kubernetes.io/serviceaccount/namespace").read()
 
 
 def job_babysitter(namespace: str) -> None:

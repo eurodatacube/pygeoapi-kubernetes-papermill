@@ -349,3 +349,9 @@ def extra_secret_env_config(secret_name: str, num: int) -> ExtraConfig:
             )
         ]
     )
+
+
+def current_namespace():
+    # getting the current namespace like this is documented, so it should be fine:
+    # https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/
+    return open("/var/run/secrets/kubernetes.io/serviceaccount/namespace").read()
