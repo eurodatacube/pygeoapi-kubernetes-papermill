@@ -41,11 +41,12 @@ import json
 import kubernetes.client.rest
 
 
-from pygeoapi.process.manager.base import BaseManager, DATETIME_FORMAT
+from pygeoapi.process.manager.base import BaseManager, DATETIME_FORMAT, BaseProcessor
 from pygeoapi.util import (
     JobStatus,
     Subscriber,
     RequestedResponse,
+    ProcessExecutionMode,
 )
 
 from pygeoapi.process.base import (
@@ -94,7 +95,6 @@ class ArgoManager(BaseManager):
 
             self.namespace = current_namespace()
 
-        self.workflow_template: str = manager_def["workflow_template"]
         self.custom_objects_api = k8s_client.CustomObjectsApi()
         # self.core_api = k8s_client.CoreV1Api()
 
@@ -182,7 +182,7 @@ class ArgoManager(BaseManager):
 
     def _execute_handler_async(
         self,
-        p: ArgoManager,
+        p: ArgoProcessor,
         job_id,
         data_dict,
         requested_outputs: Optional[dict] = None,
@@ -226,7 +226,7 @@ class ArgoManager(BaseManager):
                     ]
                 },
                 "entrypoint": "test",
-                "workflowTemplateRef": {"name": self.workflow_template},
+                "workflowTemplateRef": {"name": p.workflow_template},
             },
         }
         self.custom_objects_api.create_namespaced_custom_object(
@@ -235,6 +235,28 @@ class ArgoManager(BaseManager):
             body=body,
         )
         return ("application/json", {}, JobStatus.accepted)
+
+
+class ArgoProcessor(BaseProcessor):
+    def __init__(self, processor_def: dict) -> None:
+        metadata = {
+            "version": "0.1.0",
+            "id": "",
+            "title": "",
+            "description": "",
+            "keywords": [""],
+            "links": [],
+            "inputs": {},
+            "outputs": {},
+            "example": {},
+            "jobControlOptions": [
+                ProcessExecutionMode.async_execute.value,
+                ProcessExecutionMode.sync_execute.value,
+            ],
+        }
+        super().__init__(processor_def, metadata)
+
+        self.workflow_template: str = processor_def["workflow_template"]
 
 
 def job_from_k8s_wf(workflow: dict) -> JobDict:

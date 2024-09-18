@@ -37,7 +37,7 @@ from pygeoapi.util import JobStatus, RequestedProcessExecutionMode, Subscriber
 from pygeoapi_kubernetes_papermill import (
     ArgoManager,
 )
-from pygeoapi.process.base import BaseProcessor
+from pygeoapi_kubernetes_papermill.argo import ArgoProcessor
 
 
 @pytest.fixture()
@@ -45,8 +45,8 @@ def manager(mock_k8s_base) -> ArgoManager:
     man = ArgoManager(
         {"name": "kman", "skip_k8s_setup": True, "workflow_template": "mytemplate"}
     )
-    man.get_processor = lambda *args, **kwargs: BaseProcessor(
-        {"name": ""}, {"jobControlOptions": "async-execute"}
+    man.get_processor = lambda *args, **kwargs: ArgoProcessor(
+        {"name": "", "workflow_template": "mywf"}
     )
     return man
 
@@ -98,9 +98,10 @@ def test_get_job_returns_workflow(
 ):
     job_id = "abc"
     job = manager.get_job(job_id=job_id)
+    assert job
     assert job["identifier"] == "annotations-identifier"
-    assert json.loads(job["parameters"]) == {"inpfile": "test2.txt"}
-    assert job["job_start_datetime"] == "2024-09-18T12:01:02.000000Z"
+    assert json.loads(job["parameters"]) == {"inpfile": "test2.txt"}  # type: ignore
+    assert job.get("job_start_datetime") == "2024-09-18T12:01:02.000000Z"
     assert job["status"] == "successful"
 
 
