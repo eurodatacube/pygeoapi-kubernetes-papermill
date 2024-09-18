@@ -31,12 +31,15 @@ from dataclasses import dataclass, field
 import functools
 import logging
 import operator
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, Optional, TypedDict
 import re
 from pathlib import PurePath
 from http import HTTPStatus
+from datetime import datetime, timezone
+
 
 from pygeoapi.process.base import ProcessorExecuteError
+from pygeoapi.process.manager.base import DATETIME_FORMAT
 
 
 from kubernetes import client as k8s_client
@@ -351,7 +354,47 @@ def extra_secret_env_config(secret_name: str, num: int) -> ExtraConfig:
     )
 
 
+_ANNOTATIONS_PREFIX = "pygeoapi.io/"
+
+
+def parse_annotation_key(key: str) -> Optional[str]:
+    matched = re.match(f"^{_ANNOTATIONS_PREFIX}(.+)", key)
+    return matched.group(1) if matched else None
+
+
+def format_annotation_key(key: str) -> str:
+    return _ANNOTATIONS_PREFIX + key
+
+
 def current_namespace():
     # getting the current namespace like this is documented, so it should be fine:
     # https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/
     return open("/var/run/secrets/kubernetes.io/serviceaccount/namespace").read()
+
+
+def hide_secret_values(d: dict[str, str]) -> dict[str, str]:
+    def transform_value(k, v):
+        return (
+            "*"
+            if any(trigger in k.lower() for trigger in ["secret", "key", "password"])
+            else v
+        )
+
+    return {k: transform_value(k, v) for k, v in d.items()}
+
+
+def now_str() -> str:
+    return datetime.now(timezone.utc).strftime(DATETIME_FORMAT)
+
+
+JobDict = TypedDict(
+    "JobDict",
+    {
+        "identifier": str,
+        "status": str,
+        "result-notebook": str,
+        "message": str,
+        "job_end_datetime": Optional[str],
+    },
+    total=False,
+)

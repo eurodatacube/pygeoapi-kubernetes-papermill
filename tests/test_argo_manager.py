@@ -28,6 +28,7 @@
 # =================================================================
 
 from unittest import mock
+import json
 
 import pytest
 from kubernetes import client as k8s_client
@@ -80,16 +81,27 @@ def test_execute_process_starts_async_job(
     ]
     assert job_id in job["metadata"]["name"]
 
-    # TODO
-    # $ assert job.metadata.annotations["pygeoapi.io/identifier"] == job_id
-    # $ assert (
-    # $     job.metadata.annotations["pygeoapi.io/success-uri"]
-    # $     == "https://example.com/success"
-    # $ )
-    # $ assert (
-    # $     job.metadata.annotations["pygeoapi.io/failed-uri"]
-    # $     == "https://example.com/failed"
-    # $ )
+    assert job["metadata"]["annotations"]["pygeoapi.io/identifier"] == job_id
+    #  assert (
+    #      job.metadata.annotations["pygeoapi.io/success-uri"]
+    #      == "https://example.com/success"
+    #  )
+    #  assert (
+    #      job.metadata.annotations["pygeoapi.io/failed-uri"]
+    #      == "https://example.com/failed"
+    #  )
+
+
+def test_get_job_returns_workflow(
+    manager: ArgoManager,
+    mock_get_workflow,
+):
+    job_id = "abc"
+    job = manager.get_job(job_id=job_id)
+    assert job["identifier"] == "annotations-identifier"
+    assert json.loads(job["parameters"]) == {"inpfile": "test2.txt"}
+    assert job["job_start_datetime"] == "2024-09-18T12:01:02.000000Z"
+    assert job["status"] == "successful"
 
 
 @pytest.fixture()
@@ -102,38 +114,43 @@ def mock_create_workflow():
         yield mocker
 
 
-"""
-
-@contextmanager
-def mock_list_jobs_with(*args):
-    with mock.patch(
-        "pygeoapi_kubernetes_papermill." "kubernetes.k8s_client.CustomObjectsApi.XXX",
-        return_value=k8s_client.V1JobList(items=args),
-    ):
-        yield
+MOCK_WORKFLOW = {
+    "apiVersion": "argoproj.io/v1alpha1",
+    "kind": "Workflow",
+    "metadata": {
+        "name": "workflow-test-instance-4",
+        "namespace": "test",
+        "annotations": {
+            "pygeoapi.io/identifier": "annotations-identifier",
+        },
+    },
+    "spec": {
+        "arguments": {"parameters": [{"name": "inpfile", "value": "test2.txt"}]},
+        "entrypoint": "test",
+        "workflowTemplateRef": {"name": "workflow-template-test"},
+    },
+    "status": {
+        "artifactGCStatus": {"notSpecified": True},
+        "artifactRepositoryRef": {"artifactRepository": {}, "default": True},
+        "conditions": [
+            {"status": "False", "type": "PodRunning"},
+            {"status": "True", "type": "Completed"},
+        ],
+        "finishedAt": "2024-09-18T12:01:12Z",
+        "phase": "Succeeded",
+        "progress": "1/1",
+        "resourcesDuration": {"cpu": 0, "memory": 3},
+        "startedAt": "2024-09-18T12:01:02Z",
+        "taskResultsCompletionStatus": {"workflow-test-instance-4": True},
+    },
+}
 
 
 @pytest.fixture()
-def mock_list_jobs(k8s_job):
-    with mock_list_jobs_with(k8s_job):
-        yield
-
-
-@pytest.fixture()
-def mock_list_jobs_accepted(k8s_job: k8s_client.V1Job):
-    k8s_job.status = k8s_client.V1JobStatus()
-    with mock_list_jobs_with(k8s_job):
-        yield
-
-
-
-@pytest.fixture()
-def mock_patch_job():
+def mock_get_workflow():
     with mock.patch(
         "pygeoapi_kubernetes_papermill."
-        "kubernetes.k8s_client.BatchV1Api.patch_namespaced_job",
+        "kubernetes.k8s_client.CustomObjectsApi.get_namespaced_custom_object",
+        return_value=MOCK_WORKFLOW,
     ) as mocker:
         yield mocker
-
-
-"""

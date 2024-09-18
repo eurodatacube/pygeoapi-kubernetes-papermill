@@ -48,7 +48,6 @@ from typed_json_dataclass import TypedJsonMixin
 from kubernetes import client as k8s_client
 
 from .kubernetes import (
-    JobDict,
     KubernetesProcessor,
     current_namespace,
     format_annotation_key,
@@ -62,6 +61,7 @@ from .common import (
     JOVIAN_UID,
     JOVIAN_GID,
     setup_byoa_results_dir_cmd,
+    JobDict,
 )
 
 LOGGER = logging.getLogger(__name__)

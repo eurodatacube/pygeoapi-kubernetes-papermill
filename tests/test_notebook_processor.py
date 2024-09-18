@@ -41,7 +41,7 @@ import pytest
 from pygeoapi.process.base import ProcessorExecuteError
 
 
-from pygeoapi_kubernetes_papermill.kubernetes import JobDict
+from pygeoapi_kubernetes_papermill.common import JobDict
 from pygeoapi_kubernetes_papermill.notebook import (
     CONTAINER_HOME,
     PapermillNotebookKubernetesProcessor,

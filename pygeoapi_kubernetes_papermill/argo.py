@@ -29,25 +29,50 @@
 
 from __future__ import annotations
 
+import datetime
 import logging
-from typing import Optional, Any
+from typing import Optional, Any, cast
 
 from kubernetes import client as k8s_client, config as k8s_config
 
-from pygeoapi.process.manager.base import BaseManager
+from http import HTTPStatus
+import json
+
+import kubernetes.client.rest
+
+
+from pygeoapi.process.manager.base import BaseManager, DATETIME_FORMAT
 from pygeoapi.util import (
     JobStatus,
     Subscriber,
     RequestedResponse,
 )
 
-# TODO: move elsewhere if we keep this
-from .kubernetes import JobDict
+from pygeoapi.process.base import (
+    JobNotFoundError,
+)
 
+from .common import (
+    k8s_job_name,
+    current_namespace,
+    format_annotation_key,
+    now_str,
+    parse_annotation_key,
+    hide_secret_values,
+    JobDict,
+)
 
-from .common import current_namespace, k8s_job_name
 
 LOGGER = logging.getLogger(__name__)
+
+WORKFLOWS_API_GROUP = "argoproj.io"
+WORKFLOWS_API_VERSION = "v1alpha1"
+
+K8S_CUSTOM_OBJECT_WORKFLOWS = {
+    "group": WORKFLOWS_API_GROUP,
+    "version": WORKFLOWS_API_VERSION,
+    "plural": "workflows",
+}
 
 
 class ArgoManager(BaseManager):
@@ -95,7 +120,18 @@ class ArgoManager(BaseManager):
 
         :returns: `dict`  # `pygeoapi.process.manager.Job`
         """
-        raise NotImplementedError
+        try:
+            k8s_wf: dict = self.custom_objects_api.get_namespaced_custom_object(
+                **K8S_CUSTOM_OBJECT_WORKFLOWS,
+                name=k8s_job_name(job_id=job_id),
+                namespace=self.namespace,
+            )
+            return job_from_k8s_wf(k8s_wf)
+        except kubernetes.client.rest.ApiException as e:
+            if e.status == HTTPStatus.NOT_FOUND:
+                raise JobNotFoundError
+            else:
+                raise
 
     def add_job(self, job_metadata):
         """
@@ -164,19 +200,23 @@ class ArgoManager(BaseManager):
                   and JobStatus.accepted (i.e. initial job status)
         """
 
-        api_group = "argoproj.io"
-        api_version = "v1alpha1"
+        annotations = {
+            "identifier": job_id,
+            "process_id": p.metadata.get("id"),
+            "job_start_datetime": now_str(),
+        }
 
-        # TODO test with this
-        # https://github.com/argoproj/argo-workflows/blob/main/examples/workflow-template/workflow-template-ref-with-entrypoint-arg-passing.yaml
         body = {
-            "apiVersion": f"{api_group}/{api_version}",
+            "apiVersion": f"{WORKFLOWS_API_GROUP}/{WORKFLOWS_API_VERSION}",
             "kind": "Workflow",
             "metadata": {
                 "name": k8s_job_name(job_id),
                 "namespace": self.namespace,
                 # TODO: labels to identify our jobs?
                 # "labels": {}
+                "annotations": {
+                    format_annotation_key(k): v for k, v in annotations.items()
+                },
             },
             "spec": {
                 "arguments": {
@@ -190,10 +230,75 @@ class ArgoManager(BaseManager):
             },
         }
         self.custom_objects_api.create_namespaced_custom_object(
-            group=api_group,
-            version=api_version,
+            **K8S_CUSTOM_OBJECT_WORKFLOWS,
             namespace=self.namespace,
-            plural="workflows",
             body=body,
         )
         return ("application/json", {}, JobStatus.accepted)
+
+
+def job_from_k8s_wf(workflow: dict) -> JobDict:
+    annotations = workflow["metadata"]["annotations"] or {}
+    metadata = {
+        parsed_key: v
+        for orig_key, v in annotations.items()
+        if (parsed_key := parse_annotation_key(orig_key))
+    }
+
+    metadata["parameters"] = json.dumps(
+        hide_secret_values(
+            {
+                param["name"]: param["value"]
+                for param in workflow["spec"]["arguments"]["parameters"]
+            }
+        )
+    )
+
+    status = status_from_argo_phase(workflow["status"]["phase"])
+
+    if started_at := workflow["status"].get("startedAt"):
+        metadata["job_start_datetime"] = argo_date_str_to_pygeoapi_date_str(started_at)
+    if finished_at := workflow["status"].get("finishedAt"):
+        metadata["job_end_datetime"] = argo_date_str_to_pygeoapi_date_str(finished_at)
+    default_progress = "100" if status == JobStatus.successful else "1"
+    # TODO: parse progress fromm wf status progress "1/2"
+
+    return cast(
+        JobDict,
+        {
+            # need this key in order not to crash, overridden by metadata:
+            "identifier": "",
+            "process_id": "",
+            "job_start_datetime": "",
+            "status": status.value,
+            "mimetype": None,  # we don't know this in general
+            "message": "",  # TODO: what to show here?
+            "progress": default_progress,
+            **metadata,
+        },
+    )
+
+
+def argo_date_str_to_pygeoapi_date_str(argo_date_str: str) -> str:
+    ARGO_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+    return datetime.datetime.strptime(
+        argo_date_str,
+        ARGO_DATE_FORMAT,
+    ).strftime(DATETIME_FORMAT)
+
+
+def status_from_argo_phase(phase: str) -> JobStatus:
+    if phase == "Pending":
+        return JobStatus.accepted
+    elif phase == "Running":
+        return JobStatus.running
+    elif phase == "Succeeded":
+        return JobStatus.successful
+    elif phase == "Failed":
+        return JobStatus.failed
+    elif phase == "Error":
+        return JobStatus.failed
+    elif phase == "":
+        return JobStatus.accepted
+    else:
+        raise AssertionError(f"Invalid argo wf phase {phase}")

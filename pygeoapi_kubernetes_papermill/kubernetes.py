@@ -30,14 +30,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from http import HTTPStatus
 import json
 import logging
-import re
 import time
 from threading import Thread
-from typing import Literal, Optional, Any, TypedDict, cast
+from typing import Literal, Optional, Any, cast
 import os
 
 from kubernetes import client as k8s_client, config as k8s_config
@@ -56,7 +55,17 @@ from pygeoapi.process.base import (
 )
 from pygeoapi.process.manager.base import BaseManager, DATETIME_FORMAT
 
-from .common import is_k8s_job_name, k8s_job_name, current_namespace
+from .common import (
+    is_k8s_job_name,
+    k8s_job_name,
+    parse_annotation_key,
+    JobDict,
+    current_namespace,
+    format_annotation_key,
+    hide_secret_values,
+    now_str,
+)
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -85,19 +94,6 @@ class KubernetesProcessor(BaseProcessor):
         raise NotImplementedError(
             "Kubernetes Processes can't be executed directly, use KubernetesManager"
         )
-
-
-JobDict = TypedDict(
-    "JobDict",
-    {
-        "identifier": str,
-        "status": str,
-        "result-notebook": str,
-        "message": str,
-        "job_end_datetime": Optional[str],
-    },
-    total=False,
-)
 
 
 class KubernetesManager(BaseManager):
@@ -448,18 +444,6 @@ class KubernetesManager(BaseManager):
         return next(iter(pods.items), None)
 
 
-_ANNOTATIONS_PREFIX = "pygeoapi.io/"
-
-
-def parse_annotation_key(key: str) -> Optional[str]:
-    matched = re.match(f"^{_ANNOTATIONS_PREFIX}(.+)", key)
-    return matched.group(1) if matched else None
-
-
-def format_annotation_key(key: str) -> str:
-    return _ANNOTATIONS_PREFIX + key
-
-
 def job_status_from_k8s(status: k8s_client.V1JobStatus) -> JobStatus:
     # we assume only 1 run without retries
 
@@ -524,17 +508,6 @@ def job_from_k8s(job: k8s_client.V1Job, message: Optional[str]) -> JobDict:
             **metadata_from_annotation,
         },
     )
-
-
-def hide_secret_values(d: dict[str, str]) -> dict[str, str]:
-    def transform_value(k, v):
-        return (
-            "*"
-            if any(trigger in k.lower() for trigger in ["secret", "key", "password"])
-            else v
-        )
-
-    return {k: transform_value(k, v) for k, v in d.items()}
 
 
 def get_completion_time(job: k8s_client.V1Job, status: JobStatus) -> Optional[datetime]:
@@ -608,7 +581,3 @@ def get_jobs_by_status(
         return [
             job for job in jobs if job_status_from_k8s(job.status) == JobStatus.failed
         ]
-
-
-def now_str() -> str:
-    return datetime.now(timezone.utc).strftime(DATETIME_FORMAT)
