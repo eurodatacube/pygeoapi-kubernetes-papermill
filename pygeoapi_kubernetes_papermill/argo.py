@@ -274,7 +274,7 @@ class ArgoManager(BaseManager):
                         for key, value in data_dict.items()
                     ]
                 },
-                "entrypoint": "test",
+                "entrypoint": "execute",
                 "workflowTemplateRef": {"name": p.workflow_template},
             },
         }
