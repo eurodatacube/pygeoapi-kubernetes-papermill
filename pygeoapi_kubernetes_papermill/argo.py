@@ -206,6 +206,10 @@ class ArgoManager(BaseManager):
             "job_start_datetime": now_str(),
         }
 
+        # TODO: we don't get parameter validation when called like this, only in
+        #       message when status is called. maybe busy wait for a small amount
+        #       of time to be able to return some message right away?
+
         body = {
             "apiVersion": f"{WORKFLOWS_API_GROUP}/{WORKFLOWS_API_VERSION}",
             "kind": "Workflow",
@@ -239,10 +243,14 @@ class ArgoManager(BaseManager):
 
 class ArgoProcessor(BaseProcessor):
     def __init__(self, processor_def: dict) -> None:
+        self.workflow_template: str = processor_def["workflow_template"]
+
+        # TODO: parse workflow file in namespace to fill in inputs, outputs, etc.
+
         metadata = {
             "version": "0.1.0",
-            "id": "",
-            "title": "",
+            "id": self.workflow_template,
+            "title": self.workflow_template,
             "description": "",
             "keywords": [""],
             "links": [],
@@ -255,8 +263,6 @@ class ArgoProcessor(BaseProcessor):
             ],
         }
         super().__init__(processor_def, metadata)
-
-        self.workflow_template: str = processor_def["workflow_template"]
 
 
 def job_from_k8s_wf(workflow: dict) -> JobDict:
@@ -271,7 +277,7 @@ def job_from_k8s_wf(workflow: dict) -> JobDict:
         hide_secret_values(
             {
                 param["name"]: param["value"]
-                for param in workflow["spec"]["arguments"]["parameters"]
+                for param in workflow["spec"]["arguments"].get("parameters", [])
             }
         )
     )
@@ -294,7 +300,7 @@ def job_from_k8s_wf(workflow: dict) -> JobDict:
             "job_start_datetime": "",
             "status": status.value,
             "mimetype": None,  # we don't know this in general
-            "message": "",  # TODO: what to show here?
+            "message": workflow["status"].get("message", ""),
             "progress": default_progress,
             **metadata,
         },
