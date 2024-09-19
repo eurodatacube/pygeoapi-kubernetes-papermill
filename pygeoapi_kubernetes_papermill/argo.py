@@ -215,7 +215,14 @@ class ArgoManager(BaseManager):
 
         :returns: `bool` of status result
         """
-        raise NotImplementedError
+        self.custom_objects_api.delete_namespaced_custom_object(
+            **K8S_CUSTOM_OBJECT_WORKFLOWS,
+            name=k8s_job_name(job_id=job_id),
+            namespace=self.namespace,
+            # this policy should also remove pods, but doesn't
+            propagation_policy="Foreground",
+        )
+        return True
 
     def _execute_handler_async(
         self,

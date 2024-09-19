@@ -115,6 +115,16 @@ def test_get_jobs_returns_workflows(
     assert job["identifier"] == "annotations-identifier"
 
 
+def test_delete_job_deletes_job(
+    manager: ArgoManager,
+    mock_delete_workflow,
+):
+    response = manager.delete_job("abc")
+
+    assert response
+    mock_delete_workflow.assert_called()
+
+
 @pytest.fixture()
 def mock_create_workflow():
     with mock.patch(
@@ -173,5 +183,14 @@ def mock_list_workflows():
         "pygeoapi_kubernetes_papermill."
         "kubernetes.k8s_client.CustomObjectsApi.list_namespaced_custom_object",
         return_value={"items": [MOCK_WORKFLOW]},
+    ) as mocker:
+        yield mocker
+
+
+@pytest.fixture()
+def mock_delete_workflow():
+    with mock.patch(
+        "pygeoapi_kubernetes_papermill."
+        "kubernetes.k8s_client.CustomObjectsApi.delete_namespaced_custom_object",
     ) as mocker:
         yield mocker
