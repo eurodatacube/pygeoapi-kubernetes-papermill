@@ -105,6 +105,16 @@ def test_get_job_returns_workflow(
     assert job["status"] == "successful"
 
 
+def test_get_jobs_returns_workflows(
+    manager: ArgoManager,
+    mock_list_workflows,
+):
+    response = manager.get_jobs()
+    assert response["numberMatched"] == 1
+    job = response["jobs"][0]
+    assert job["identifier"] == "annotations-identifier"
+
+
 @pytest.fixture()
 def mock_create_workflow():
     with mock.patch(
@@ -153,5 +163,15 @@ def mock_get_workflow():
         "pygeoapi_kubernetes_papermill."
         "kubernetes.k8s_client.CustomObjectsApi.get_namespaced_custom_object",
         return_value=MOCK_WORKFLOW,
+    ) as mocker:
+        yield mocker
+
+
+@pytest.fixture()
+def mock_list_workflows():
+    with mock.patch(
+        "pygeoapi_kubernetes_papermill."
+        "kubernetes.k8s_client.CustomObjectsApi.list_namespaced_custom_object",
+        return_value={"items": [MOCK_WORKFLOW]},
     ) as mocker:
         yield mocker

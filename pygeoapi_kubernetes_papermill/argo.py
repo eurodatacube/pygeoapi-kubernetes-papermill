@@ -75,6 +75,8 @@ K8S_CUSTOM_OBJECT_WORKFLOWS = {
     "plural": "workflows",
 }
 
+INITIATOR_LABEL_VALUE = "pygeoapi-eoxhub"
+
 
 class ArgoManager(BaseManager):
     def __init__(self, manager_def: dict) -> None:
@@ -110,7 +112,42 @@ class ArgoManager(BaseManager):
         :returns: dict of list of jobs (identifier, status, process identifier)
                   and numberMatched
         """
-        raise NotImplementedError
+
+        # NOTE: k8s does not support pagination because it does not support sorting
+        #       https://github.com/kubernetes/kubernetes/issues/80602
+
+        def get_start_time_from_job(job: k8s_client.V1Job) -> str:
+            key = format_annotation_key("job_start_datetime")
+            return job["metadata"]["annotations"].get(key, "")
+
+        k8s_wfs = sorted(
+            (
+                k8s_wf
+                for k8s_wf in self.custom_objects_api.list_namespaced_custom_object(
+                    **K8S_CUSTOM_OBJECT_WORKFLOWS,
+                    namespace=self.namespace,
+                    label_selector=f"initiator={INITIATOR_LABEL_VALUE}",
+                )["items"]
+            ),
+            key=get_start_time_from_job,
+            reverse=True,
+        )
+
+        number_matched = len(k8s_wfs)
+
+        # NOTE: need to paginate before expensive single job serialization
+        if offset:
+            k8s_wfs = k8s_wfs[offset:]
+
+        if limit:
+            k8s_wfs = k8s_wfs[:limit]
+
+        # TODO: implement status filter
+
+        return {
+            "jobs": [job_from_k8s_wf(k8s_wf) for k8s_wf in k8s_wfs],
+            "numberMatched": number_matched,
+        }
 
     def get_job(self, job_id) -> Optional[JobDict]:
         """
@@ -216,8 +253,9 @@ class ArgoManager(BaseManager):
             "metadata": {
                 "name": k8s_job_name(job_id),
                 "namespace": self.namespace,
-                # TODO: labels to identify our jobs?
-                # "labels": {}
+                "labels": {
+                    "initiator": INITIATOR_LABEL_VALUE,
+                },
                 "annotations": {
                     format_annotation_key(k): v for k, v in annotations.items()
                 },
@@ -302,6 +340,7 @@ def job_from_k8s_wf(workflow: dict) -> JobDict:
             "mimetype": None,  # we don't know this in general
             "message": workflow["status"].get("message", ""),
             "progress": default_progress,
+            "job_end_datetime": None,
             **metadata,
         },
     )
