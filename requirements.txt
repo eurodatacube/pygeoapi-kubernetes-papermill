@@ -1,14 +1,14 @@
-kubernetes==29.0.0
+kubernetes==31.0.0
 scrapbook==0.5.0
 typed_json_dataclass==1.2.1
-requests==2.31.0
+requests==2.32.3
 # need to upgrade from base image for papermill dependency
 python-dateutil==2.9.0
 
 pytest
 pytest-watch
-flake8==7.0.0
-mypy==1.9.0
-black==24.3.0
+flake8==7.1.1
+mypy==1.11.2
+black==24.8.0
 types-requests
 types-PyYAML
