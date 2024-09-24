@@ -85,17 +85,13 @@ class ArgoManager(BaseManager):
         self.is_async = True
         self.supports_subscribing = True
 
-        if manager_def.get("skip_k8s_setup"):
-            # this is virtually only useful for tests
-            self.namespace = "test"
-        else:
-            try:
-                k8s_config.load_kube_config()
-            except Exception:
-                # load_kube_config might throw anything :/
-                k8s_config.load_incluster_config()
+        try:
+            k8s_config.load_kube_config()
+        except Exception:
+            # load_kube_config might throw anything :/
+            k8s_config.load_incluster_config()
 
-            self.namespace = current_namespace()
+        self.namespace = current_namespace()
 
         self.custom_objects_api = k8s_client.CustomObjectsApi()
         # self.core_api = k8s_client.CoreV1Api()
