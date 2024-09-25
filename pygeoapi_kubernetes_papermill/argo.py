@@ -77,6 +77,8 @@ K8S_CUSTOM_OBJECT_WORKFLOWS = {
 
 INITIATOR_LABEL_VALUE = "pygeoapi-eoxhub"
 
+WORKFLOW_ENTRYPOINT_NAME = "execute"
+
 
 class ArgoManager(BaseManager):
     def __init__(self, manager_def: dict) -> None:
@@ -270,7 +272,7 @@ class ArgoManager(BaseManager):
                         for key, value in data_dict.items()
                     ]
                 },
-                "entrypoint": "execute",
+                "entrypoint": WORKFLOW_ENTRYPOINT_NAME,
                 "workflowTemplateRef": {"name": p.workflow_template},
             },
         }
@@ -286,8 +288,7 @@ class ArgoProcessor(BaseProcessor):
     def __init__(self, processor_def: dict) -> None:
         self.workflow_template: str = processor_def["workflow_template"]
 
-        # TODO: parse workflow file in namespace to fill in inputs, outputs, etc.
-
+        inputs = _inputs_from_workflow_template(self.workflow_template)
         metadata = {
             "version": "0.1.0",
             "id": self.workflow_template,
@@ -295,7 +296,7 @@ class ArgoProcessor(BaseProcessor):
             "description": "",
             "keywords": [""],
             "links": [],
-            "inputs": {},
+            "inputs": inputs,
             "outputs": {},
             "example": {},
             "jobControlOptions": [
@@ -304,6 +305,50 @@ class ArgoProcessor(BaseProcessor):
             ],
         }
         super().__init__(processor_def, metadata)
+
+
+def _inputs_from_workflow_template(workflow_template) -> dict:
+    try:
+        k8s_wf_template: dict = (
+            k8s_client.CustomObjectsApi().get_namespaced_custom_object(
+                group=WORKFLOWS_API_GROUP,
+                version=WORKFLOWS_API_VERSION,
+                plural="workflowtemplates",
+                name=workflow_template,
+                namespace=current_namespace(),
+            )
+        )
+    except kubernetes.client.rest.ApiException as e:
+        if e.status == HTTPStatus.NOT_FOUND:
+            raise Exception(
+                f"Failed to find workflow template {workflow_template}"
+                f" in {current_namespace()}"
+            ) from e
+        else:
+            raise
+
+    try:
+        (entrypoint_template,) = [
+            template
+            for template in k8s_wf_template["spec"]["templates"]
+            if template.get("name") == WORKFLOW_ENTRYPOINT_NAME
+        ]
+    except ValueError as e:
+        raise Exception(
+            f"Failed to find wf template entrypoint template {WORKFLOW_ENTRYPOINT_NAME}"
+        ) from e
+
+    return {
+        parameter["name"]: {
+            "title": parameter["name"],
+            "description": "",
+            "schema": {"type": "string"},
+            "minOccurs": 0 if parameter.get("value") else 1,
+            "maxOccurs": 1,
+            "keywords": [],
+        }
+        for parameter in entrypoint_template.get("inputs", {}).get("parameters", [])
+    }
 
 
 def job_from_k8s_wf(workflow: dict) -> JobDict:

@@ -52,6 +52,7 @@ def manager(mock_k8s_base) -> ArgoManager:
 def test_execute_process_starts_async_job(
     manager: ArgoManager,
     mock_create_workflow,
+    mock_get_workflow_template,
 ):
     job_id = "abc"
     result = manager.execute_process(
@@ -123,6 +124,15 @@ def test_delete_job_deletes_job(
     mock_delete_workflow.assert_called()
 
 
+def test_inputs_retrieved_from_workflow_template(
+    mock_k8s_base,
+    mock_get_workflow_template,
+):
+    processor = ArgoProcessor({"name": "proc", "workflow_template": "whatever"})
+    assert processor.metadata["inputs"]["param"]["minOccurs"] == 1
+    assert processor.metadata["inputs"]["param-optional"]["minOccurs"] == 0
+
+
 @pytest.fixture()
 def mock_create_workflow():
     with mock.patch(
@@ -167,6 +177,7 @@ MOCK_WORKFLOW = {
 
 @pytest.fixture()
 def mock_get_workflow():
+    # NOTE: mocks same function as get_workflow_template
     with mock.patch(
         "pygeoapi_kubernetes_papermill."
         "kubernetes.k8s_client.CustomObjectsApi.get_namespaced_custom_object",
@@ -192,3 +203,39 @@ def mock_delete_workflow():
         "kubernetes.k8s_client.CustomObjectsApi.delete_namespaced_custom_object",
     ) as mocker:
         yield mocker
+
+
+@pytest.fixture()
+def mock_get_workflow_template():
+    # NOTE: mocks same function as get_workflow
+    with mock.patch(
+        "pygeoapi_kubernetes_papermill."
+        "kubernetes.k8s_client.CustomObjectsApi.get_namespaced_custom_object",
+        return_value=MOCK_WORKFLOW_TEMPLATE,
+    ) as mocker:
+        yield mocker
+
+
+MOCK_WORKFLOW_TEMPLATE = {
+    "metadata": {
+        "name": "test",
+        "namespace": "test",
+    },
+    "spec": {
+        "imagePullSecrets": [{"name": "flux-cerulean"}],
+        "serviceAccountName": "argo-workflow",
+        "templates": [
+            {
+                "container": {},
+                "inputs": {
+                    "artifacts": [],
+                    "parameters": [
+                        {"name": "param"},
+                        {"name": "param-optional", "value": "a"},
+                    ],
+                },
+                "name": "execute",
+            }
+        ],
+    },
+}
