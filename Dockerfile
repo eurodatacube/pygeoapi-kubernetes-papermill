@@ -1,4 +1,6 @@
-FROM eurodatacube/pygeoapi:job-pagination-4aba7ff-20240805
+# alternative image repo in case we need to use non official releases:
+# FROM eurodatacube/pygeoapi:job-pagination-4aba7ff-20240805
+FROM geopython/pygeoapi:0.18.0
 
 RUN apt update \
   && apt --no-install-recommends -y install patch vim-tiny
