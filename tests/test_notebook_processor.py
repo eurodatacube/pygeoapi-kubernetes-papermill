@@ -190,7 +190,15 @@ def test_no_s3_bucket_by_default(papermill_processor, create_pod_kwargs):
 @pytest.fixture()
 def papermill_processor_s3():
     return _create_processor(
-        {"s3": {"bucket_name": "example", "secret_name": "example", "s3_url": ""}}
+        {
+            "s3": {
+                "bucket_name": "example",
+                "secret_name": "example",
+                "s3_url": "",
+                "resource_requests": {"ice/cream": 1},
+                "resource_limits": {"ice/cream": 3},
+            }
+        }
     )
 
 
@@ -637,6 +645,14 @@ def test_extra_requirements_are_added(create_pod_kwargs):
     job_pod_spec = processor.create_job_pod_spec(**create_pod_kwargs)
 
     resources = job_pod_spec.pod_spec.containers[0].resources
+    assert resources.requests["ice/cream"] == 1
+    assert resources.limits["ice/cream"] == 3
+
+
+def test_s3fs_requirements_are_added(create_pod_kwargs, papermill_processor_s3):
+    job_pod_spec = papermill_processor_s3.create_job_pod_spec(**create_pod_kwargs)
+
+    resources = job_pod_spec.pod_spec.containers[1].resources
     assert resources.requests["ice/cream"] == 1
     assert resources.limits["ice/cream"] == 3
 

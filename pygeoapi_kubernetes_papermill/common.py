@@ -167,6 +167,8 @@ class ContainerKubernetesProcessorMixin:
                     secret_name=self.s3["secret_name"],
                     mount_path=self.s3["mount_path"],
                     s3_url=self.s3["s3_url"],
+                    resource_limits=self.s3["resource_limits"],
+                    resource_requests=self.s3["resource_requests"],
                 )
 
             access_functions = {
@@ -210,7 +212,9 @@ def extra_volume_mount_config(extra_volume_mount: dict) -> ExtraConfig:
     )
 
 
-def s3_config(bucket_name, secret_name, s3_url, mount_path) -> ExtraConfig:
+def s3_config(
+    bucket_name, secret_name, s3_url, mount_path, resource_requests, resource_limits
+) -> ExtraConfig:
     s3_user_bucket_volume_name = "s3-user-bucket"
     return ExtraConfig(
         volume_mounts=[
@@ -265,11 +269,12 @@ def s3_config(bucket_name, secret_name, s3_url, mount_path) -> ExtraConfig:
                     ),
                 ],
                 resources=k8s_client.V1ResourceRequirements(
-                    limits={"cpu": "0.2", "memory": "512Mi"},
+                    limits={"cpu": "0.2", "memory": "512Mi"} | resource_limits,
                     requests={
                         "cpu": "0.05",
                         "memory": "32Mi",
-                    },
+                    }
+                    | resource_requests,
                 ),
                 env=[
                     k8s_client.V1EnvVar(name="S3FS_ARGS", value="-oallow_other"),
