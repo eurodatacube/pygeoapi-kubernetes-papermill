@@ -247,6 +247,11 @@ def s3_config(bucket_name, secret_name, s3_url, mount_path) -> ExtraConfig:
                     "while pgrep -x bash >/dev/null; do sleep 1; done; "
                     'echo "`date` job end detected"; ',
                 ],
+                liveness_probe=k8s_client.V1Probe(
+                    _exec=k8s_client.V1ExecAction(
+                        command=["sh", "-c", "pgrep s3fs >/dev/null"]
+                    )
+                ),
                 security_context=k8s_client.V1SecurityContext(
                     privileged=True,
                     run_as_user=0,
