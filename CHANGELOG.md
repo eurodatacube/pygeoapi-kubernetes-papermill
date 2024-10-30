@@ -1,3 +1,10 @@
+## 1.5.8
+* Add argo backend
+* Allow setting custom resource requirements for s3fs
+* Add liveness probe for s3fs
+* Always run s3fs as root
+* Update pygeoapi base to 0.18
+
 ## 1.5.2
 * Jobs pagination sorting
 
