@@ -34,16 +34,13 @@ import pytest
 from kubernetes import client as k8s_client
 
 from pygeoapi.util import JobStatus, RequestedProcessExecutionMode, Subscriber
-from pygeoapi_kubernetes_papermill import (
-    ArgoManager,
-)
-from pygeoapi_kubernetes_papermill.argo import ArgoProcessor
+from pygeoapi_kubernetes_papermill.argo import ArgoProcessor, ArgoManager
 
 
 @pytest.fixture()
 def manager(mock_k8s_base) -> ArgoManager:
     man = ArgoManager(
-        {"name": "kman", "skip_k8s_setup": True, "workflow_template": "mytemplate"}
+        {"name": "kman", "skip_k8s_setup": True, "log_query_endpoint": ""}
     )
     man.get_processor = lambda *args, **kwargs: ArgoProcessor(
         {"name": "", "workflow_template": "mywf"}

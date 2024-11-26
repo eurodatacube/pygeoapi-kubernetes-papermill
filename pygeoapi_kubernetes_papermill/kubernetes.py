@@ -129,6 +129,8 @@ class KubernetesManager(BaseManager):
         self.batch_v1 = k8s_client.BatchV1Api()
         self.core_api = k8s_client.CoreV1Api()
 
+        self.log_query_endpoint: str = manager_def["log_query_endpoint"]
+
     def get_jobs(self, status=None, limit=None, offset=None) -> dict:
         """
         Get process jobs, optionally filtered by status

@@ -1,3 +1,6 @@
+## 1.5.9
+* Add view to retrieve log output of job from external server
+
 ## 1.5.8
 * Add argo backend
 * Allow setting custom resource requirements for s3fs
