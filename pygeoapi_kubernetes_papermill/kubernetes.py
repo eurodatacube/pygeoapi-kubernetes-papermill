@@ -103,24 +103,28 @@ class KubernetesManager(BaseManager):
         self.is_async = True
         self.supports_subscribing = True
 
-        try:
-            k8s_config.load_kube_config()
-        except Exception:
-            # load_kube_config might throw anything :/
-            k8s_config.load_incluster_config()
+        if manager_def.get("skip_k8s_setup"):
+            # this is virtually only useful for tests
+            self.namespace = "test"
+        else:
+            try:
+                k8s_config.load_kube_config()
+            except Exception:
+                # load_kube_config might throw anything :/
+                k8s_config.load_incluster_config()
 
-        self.namespace = current_namespace()
+            self.namespace = current_namespace()
 
-        # NOTE: this starts a thread per WSGI_WORKER, which is not optimal
-        # the eoxhub use case uses only 1 worker, so it's trivially fine.
-        # not sure how this can be solved cleanly on different web servers.
-        Thread(
-            group=None,
-            target=job_babysitter,
-            daemon=True,
-            name="JobBabysitter",
-            kwargs={"namespace": self.namespace},
-        ).start()
+            # NOTE: this starts a thread per WSGI_WORKER, which is not optimal
+            # the eoxhub use case uses only 1 worker, so it's trivially fine.
+            # not sure how this can be solved cleanly on different web servers.
+            Thread(
+                group=None,
+                target=job_babysitter,
+                daemon=True,
+                name="JobBabysitter",
+                kwargs={"namespace": self.namespace},
+            ).start()
 
         self.batch_v1 = k8s_client.BatchV1Api()
         self.core_api = k8s_client.CoreV1Api()

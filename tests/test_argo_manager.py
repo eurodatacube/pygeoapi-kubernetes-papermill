@@ -42,7 +42,9 @@ from pygeoapi_kubernetes_papermill.argo import ArgoProcessor
 
 @pytest.fixture()
 def manager(mock_k8s_base) -> ArgoManager:
-    man = ArgoManager({"name": "kman"})
+    man = ArgoManager(
+        {"name": "kman", "skip_k8s_setup": True, "workflow_template": "mytemplate"}
+    )
     man.get_processor = lambda *args, **kwargs: ArgoProcessor(
         {"name": "", "workflow_template": "mywf"}
     )

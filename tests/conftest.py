@@ -44,13 +44,7 @@ def mock_k8s_base():
     ), mock.patch(
         "pygeoapi_kubernetes_papermill.kubernetes.current_namespace"
     ), mock.patch(
-        "pygeoapi_kubernetes_papermill.kubernetes.Thread",
-    ), mock.patch(
         "pygeoapi_kubernetes_papermill.notebook.current_namespace",
-    ), mock.patch(
-        "pygeoapi_kubernetes_papermill.argo.k8s_config",
-    ), mock.patch(
-        "pygeoapi_kubernetes_papermill.argo.current_namespace",
     ):
         yield
 

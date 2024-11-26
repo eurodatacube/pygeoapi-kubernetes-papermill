@@ -160,7 +160,7 @@ def mock_wait_for_result_file():
 
 @pytest.fixture()
 def manager(mock_k8s_base, papermill_processor) -> KubernetesManager:
-    man = KubernetesManager({"name": "kman"})
+    man = KubernetesManager({"name": "kman", "skip_k8s_setup": True})
     man.get_processor = lambda *args, **kwargs: papermill_processor
     return man
 

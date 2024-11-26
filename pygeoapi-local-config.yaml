@@ -16,6 +16,7 @@ server:
 
     manager:
         name: pygeoapi_kubernetes_papermill.KubernetesManager
+        skip_k8s_setup: true
 
 logging:
     level: DEBUG
