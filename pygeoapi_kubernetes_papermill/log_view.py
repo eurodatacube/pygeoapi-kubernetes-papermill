@@ -61,7 +61,7 @@ def get_job_logs(job_id):
         response = requests.get(
             log_query_endpoint,
             params={
-                "query": f'{{job="{namespace}/{job_id}}}"',
+                "query": f'{{job="{namespace}/{job_id}"}}',
             },
         )
         response.raise_for_status()
