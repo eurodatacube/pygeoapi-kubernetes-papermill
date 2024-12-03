@@ -41,8 +41,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 @APP.get("/jobs/<job_id>/logs")
-def get_job_logs(process_id, job_id):
-    LOGGER.debug(f"Retrieving job logs for {process_id} {job_id}")
+def get_job_logs(job_id):
+    LOGGER.debug(f"Retrieving job logs for {job_id}")
 
     from pygeoapi.flask_app import api_
 
