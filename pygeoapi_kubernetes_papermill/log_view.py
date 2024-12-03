@@ -34,7 +34,7 @@ import itertools
 import requests
 
 # NOTE: this assumes flask_app, which is the default.
-from pygeoapi.flask_app import APP, api_
+from pygeoapi.flask_app import APP
 
 
 LOGGER = logging.getLogger(__name__)
@@ -43,6 +43,8 @@ LOGGER = logging.getLogger(__name__)
 @APP.get("/processes/<process_id>/jobs/<job_id>/logs")
 def get_job_logs(process_id, job_id):
     LOGGER.debug(f"Retrieving job logs for {process_id} {job_id}")
+
+    from pygeoapi.flask_app import api_
 
     log_query_endpoint = getattr(api_.manager, "log_query_endpoint", None)
     if not log_query_endpoint:
