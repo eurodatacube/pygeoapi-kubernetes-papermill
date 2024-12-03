@@ -21,5 +21,12 @@ WORKDIR /pkp
 COPY requirements.txt .
 RUN python3 -m pip install -r requirements.txt
 
+# Stupid workaround:
+# Adding views to pygeoapi from here is messy. We have to modify the flask
+# app, but then generating the openapi docs imports flask, which fails if
+# the openapi docs are missing. Therefore create it here, but empty, such
+# that we can even create it *exploding-head-emoji*
+RUN touch /pygeoapi/local.openapi.yml
+
 COPY . .
 RUN python3 setup.py install
