@@ -71,6 +71,23 @@ resources:
       extra_pvcs: []
       jupyter_base_url: "https://edc-jupyter.hub.eox.at"
       secrets: []
+      allowed_images_regex: ""
+      image_pull_secret: ""
+      extra_volumes: []
+      extra_volume_mounts: []
+      log_output: true
+      default_node_purpose: ""
+      allowed_node_purposes_regex: ""
+      tolerations: []
+      job_service_account: ""
+      allow_fargate: false
+      auto_mount_secrets: false
+      node_purpose_label_key: ""
+      run_as_user: null
+      run_as_group: null
+      conda_store_groups: []
+      extra_resource_limits: {}
+      extra_resource_requests: {}
       checkout_git_repo:
         enabled: false
         url: "test"
