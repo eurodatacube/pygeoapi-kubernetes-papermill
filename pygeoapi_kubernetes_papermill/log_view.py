@@ -30,6 +30,7 @@
 from http import HTTPStatus
 import logging
 import itertools
+import time
 
 import requests
 
@@ -58,10 +59,16 @@ def get_job_logs(job_id):
         return content, status, headers
     else:
         namespace = api_.manager.namespace
+
+        # 21 days in ns (default limit in loki is 30 days)
+        query_time_range = 21 * 24 * 60 * 60 * 1_000_000_000
+
         response = requests.get(
             log_query_endpoint,
             params={
                 "query": f'{{job="{namespace}/{job_id}"}}',
+                "start": time.time_ns() - query_time_range,
+                "end": time.time_ns(),
             },
         )
         response.raise_for_status()
