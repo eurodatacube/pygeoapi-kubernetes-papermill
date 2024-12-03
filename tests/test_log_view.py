@@ -75,7 +75,8 @@ def test_log_view_returns_log_lines(client, mock_loki_request):
     response = client.get(f"/jobs/{job_id}/logs")
 
     assert (
-        mock_loki_request.mock_calls[0][2]["params"]["query"] == '{job="test/abc-123"}'
+        mock_loki_request.mock_calls[0][2]["params"]["query"]
+        == '{job="test/pygeoapi-job-abc-123"}'
     )
 
     assert response.status_code == 200
