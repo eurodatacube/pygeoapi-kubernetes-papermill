@@ -72,7 +72,7 @@ def client():
 def test_log_view_returns_log_lines(client, mock_loki_request):
     job_id = "abc-123"
 
-    response = client.get(f"/processes/my-process/jobs/{job_id}/logs")
+    response = client.get(f"/jobs/{job_id}/logs")
 
     assert mock_loki_request.mock_calls[0][2]["params"]["query"] == "{job=test/abc-123}"
 
