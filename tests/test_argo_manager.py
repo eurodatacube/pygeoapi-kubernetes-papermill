@@ -27,9 +27,11 @@
 #
 # =================================================================
 
+from http import HTTPStatus
 from unittest import mock
 import json
 
+import requests
 import pytest
 from kubernetes import client as k8s_client
 
@@ -40,7 +42,12 @@ from pygeoapi_kubernetes_papermill.argo import ArgoProcessor, ArgoManager
 @pytest.fixture()
 def manager(mock_k8s_base) -> ArgoManager:
     man = ArgoManager(
-        {"name": "kman", "skip_k8s_setup": True, "log_query_endpoint": ""}
+        {
+            "name": "kman",
+            "skip_k8s_setup": True,
+            "log_query_endpoint": "",
+            "results_link_template": "https://example.com/a/{job_id}",
+        }
     )
     man.get_processor = lambda *args, **kwargs: ArgoProcessor(
         {"name": "", "workflow_template": "mywf"}
@@ -130,6 +137,29 @@ def test_inputs_retrieved_from_workflow_template(
     processor = ArgoProcessor({"name": "proc", "workflow_template": "whatever"})
     assert processor.metadata["inputs"]["param"]["minOccurs"] == 1
     assert processor.metadata["inputs"]["param-optional"]["minOccurs"] == 0
+
+
+@pytest.fixture()
+def mock_fetch_job_result():
+    response = requests.Response()
+    response.status_code = HTTPStatus.OK
+    response.headers["content-type"] = "application/json"
+    response._content = b"{'a': 3}"
+
+    with mock.patch(
+        "pygeoapi_kubernetes_papermill.argo.requests.get",
+        return_value=response,
+    ) as patcher:
+        yield patcher
+
+
+def test_result_link_is_resolved(manager: ArgoManager, mock_fetch_job_result):
+    job_id = "abc-123"
+    result = manager.get_job_result(job_id)
+
+    assert result == ("application/json", b"{'a': 3}")
+
+    mock_fetch_job_result.assert_called_with("https://example.com/a/abc-123")
 
 
 @pytest.fixture()

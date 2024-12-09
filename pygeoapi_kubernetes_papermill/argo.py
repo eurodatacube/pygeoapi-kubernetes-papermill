@@ -32,11 +32,11 @@ from __future__ import annotations
 import datetime
 import logging
 from typing import Optional, Any, cast
-
-from kubernetes import client as k8s_client, config as k8s_config
-
 from http import HTTPStatus
 import json
+
+from kubernetes import client as k8s_client, config as k8s_config
+import requests
 
 import kubernetes.client.rest
 
@@ -103,6 +103,7 @@ class ArgoManager(BaseManager):
         # self.core_api = k8s_client.CoreV1Api()
 
         self.log_query_endpoint: str = manager_def["log_query_endpoint"]
+        self.results_link_template: str = manager_def["results_link_template"]
 
     def get_jobs(self, status=None, limit=None, offset=None) -> dict:
         """
@@ -198,7 +199,7 @@ class ArgoManager(BaseManager):
         # we could update the metadata by changing the job annotations
         raise NotImplementedError("Currently there's no use case for updating k8s jobs")
 
-    def get_job_result(self, job_id) -> tuple[Optional[Any], Optional[str]]:
+    def get_job_result(self, job_id) -> tuple[Optional[str], Optional[Any]]:
         """
         Returns the actual output from a completed process
 
@@ -207,8 +208,12 @@ class ArgoManager(BaseManager):
         :returns: `tuple` of mimetype and raw output
         """
 
-        # TODO: fetch from argo somehow
-        raise NotImplementedError
+        resolved_url = self.results_link_template.format(job_id=job_id)
+        LOGGER.debug(f"Fetching job result from {resolved_url}")
+
+        response = requests.get(resolved_url)
+        response.raise_for_status()
+        return response.headers.get("content-type"), response.content
 
     def delete_job(self, job_id) -> bool:
         """

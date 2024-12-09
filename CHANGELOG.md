@@ -1,3 +1,6 @@
+## 1.6.0
+* Implement fetching results from external resource
+
 ## 1.5.9
 * Add view to retrieve log output of job from external server
 
