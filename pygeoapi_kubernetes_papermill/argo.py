@@ -213,7 +213,14 @@ class ArgoManager(BaseManager):
 
         response = requests.get(resolved_url)
         response.raise_for_status()
-        return response.headers.get("content-type"), response.content
+
+        content_type = response.headers.get("content-type")
+        # in case of json, pygeoapi wants to encode the data itself, so we decode
+        content = (
+            response.json() if content_type == "application/json" else response.content
+        )
+
+        return content_type, content
 
     def delete_job(self, job_id) -> bool:
         """

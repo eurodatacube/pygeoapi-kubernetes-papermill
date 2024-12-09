@@ -1,3 +1,6 @@
+## 1.6.1
+* Fix json output in results
+
 ## 1.6.0
 * Implement fetching results from external resource
 

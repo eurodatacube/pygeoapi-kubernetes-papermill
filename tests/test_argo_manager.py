@@ -144,7 +144,7 @@ def mock_fetch_job_result():
     response = requests.Response()
     response.status_code = HTTPStatus.OK
     response.headers["content-type"] = "application/json"
-    response._content = b"{'a': 3}"
+    response._content = b'{"a": 3}'
 
     with mock.patch(
         "pygeoapi_kubernetes_papermill.argo.requests.get",
@@ -157,7 +157,7 @@ def test_result_link_is_resolved(manager: ArgoManager, mock_fetch_job_result):
     job_id = "abc-123"
     result = manager.get_job_result(job_id)
 
-    assert result == ("application/json", b"{'a': 3}")
+    assert result == ("application/json", {"a": 3})
 
     mock_fetch_job_result.assert_called_with("https://example.com/a/abc-123")
 
