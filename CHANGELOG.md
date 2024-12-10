@@ -1,3 +1,6 @@
+## 1.6.2
+* Handle errors from job subscriptions more gracefully
+
 ## 1.6.1
 * Fix json output in results
 

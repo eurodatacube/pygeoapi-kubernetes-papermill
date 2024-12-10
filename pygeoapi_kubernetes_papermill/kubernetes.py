@@ -529,8 +529,12 @@ def get_completion_time(job: k8s_client.V1Job, status: JobStatus) -> Optional[da
 
 def job_babysitter(namespace: str) -> None:
     while True:
-        _send_pending_notifications(namespace=namespace)
-        time.sleep(60)
+        try:
+            time.sleep(60)
+            _send_pending_notifications(namespace=namespace)
+        except Exception:
+            LOGGER.exception("Unhandled error")
+            # continue with job_babysitter
 
 
 def _send_pending_notifications(namespace: str):
@@ -547,16 +551,22 @@ def _send_pending_notifications(namespace: str):
             ):
                 LOGGER.info(f"Found {status} job {relevant_job.metadata.name}, sending")
 
-                batch_v1.patch_namespaced_job(
-                    name=relevant_job.metadata.name,
-                    namespace=namespace,
-                    body={"metadata": {"annotations": {already_sent_key: now_str()}}},
-                )
+                try:
+                    batch_v1.patch_namespaced_job(
+                        name=relevant_job.metadata.name,
+                        namespace=namespace,
+                        body={
+                            "metadata": {"annotations": {already_sent_key: now_str()}}
+                        },
+                    )
 
-                requests.post(
-                    url,
-                    json=job_from_k8s(relevant_job, message=""),
-                )
+                    requests.post(
+                        url,
+                        json=job_from_k8s(relevant_job, message=""),
+                    )
+                except Exception:
+                    LOGGER.exception(f"Failed {status} {relevant_job.metadata.name}")
+                    # continue with other notifications even if one fails
 
     _do_send(status="success")
     _do_send(status="failed")
