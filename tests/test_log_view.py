@@ -56,6 +56,16 @@ def mock_loki_request():
         yield patcher
 
 
+@pytest.fixture()
+def mock_get_workflow(workflow):
+    with mock.patch(
+        "pygeoapi_kubernetes_papermill."
+        "log_view.k8s_client.CustomObjectsApi.get_namespaced_custom_object",
+        return_value=workflow,
+    ) as mocker:
+        yield mocker
+
+
 @pytest.fixture
 def client():
     from pygeoapi.flask_app import APP
@@ -69,7 +79,7 @@ def client():
             yield client
 
 
-def test_log_view_returns_log_lines(client, mock_loki_request):
+def test_log_view_returns_log_lines(client, mock_loki_request, mock_get_workflow):
     job_id = "abc-123"
 
     response = client.get(f"/jobs/{job_id}/logs")

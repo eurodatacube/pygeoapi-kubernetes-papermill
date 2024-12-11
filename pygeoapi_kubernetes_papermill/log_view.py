@@ -30,13 +30,19 @@
 from http import HTTPStatus
 import logging
 import itertools
-import time
 
+import kubernetes.client.rest
+from kubernetes import client as k8s_client
 from flask import Response
 import requests
 
 # NOTE: this assumes flask_app, which is the default.
 from pygeoapi.flask_app import APP
+from pygeoapi_kubernetes_papermill.argo import (
+    K8S_CUSTOM_OBJECT_WORKFLOWS,
+    job_from_k8s_wf,
+)
+from pygeoapi_kubernetes_papermill.common import parse_pygeoapi_datetime
 
 
 LOGGER = logging.getLogger(__name__)
@@ -62,6 +68,22 @@ def get_job_logs(job_id):
     else:
         namespace = api_.manager.namespace
 
+        try:
+            k8s_wf: dict = k8s_client.CustomObjectsApi().get_namespaced_custom_object(
+                **K8S_CUSTOM_OBJECT_WORKFLOWS,
+                name=k8s_job_name(job_id=job_id),
+                namespace=namespace,
+            )
+        except kubernetes.client.rest.ApiException as e:
+            if e.status == HTTPStatus.NOT_FOUND:
+                return f"Job {job_id} not found"
+            else:
+                raise
+
+        job_dict = job_from_k8s_wf(k8s_wf)
+        job_start = parse_pygeoapi_datetime(job_dict["job_start_datetime"])
+        job_start_ns_unix_time = int(job_start.timestamp() * 1_000_000_000)
+
         # 21 days in ns (default limit in loki is 30 days)
         query_time_range = 21 * 24 * 60 * 60 * 1_000_000_000
 
@@ -69,8 +91,8 @@ def get_job_logs(job_id):
 
         request_params = {
             "query": f'{{job="{namespace}/{job_name}"}}',
-            "start": time.time_ns() - query_time_range,
-            "end": time.time_ns(),
+            "start": job_start_ns_unix_time,
+            "end": job_start_ns_unix_time + query_time_range,
         }
         response = requests.get(
             log_query_endpoint,

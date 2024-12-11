@@ -64,6 +64,7 @@ def k8s_job() -> k8s_client.V1Job:
             name=k8s_job_name("test"),
             annotations={
                 "pygeoapi.io/result-notebook": "/a/b/a.ipynb",
+                "pygeoapi.io/job_start_datetime": "2024-12-11T13:22:24.093812Z",
             },
         ),
         status=k8s_client.V1JobStatus(
@@ -79,6 +80,41 @@ def k8s_job_failed(k8s_job: k8s_client.V1Job) -> k8s_client.V1Job:
     failed_job.status.failed = 1
     failed_job.status.conditions = []
     return failed_job
+
+
+@pytest.fixture()
+def workflow() -> dict:
+    return {
+        "apiVersion": "argoproj.io/v1alpha1",
+        "kind": "Workflow",
+        "metadata": {
+            "name": "workflow-test-instance-4",
+            "namespace": "test",
+            "annotations": {
+                "pygeoapi.io/identifier": "annotations-identifier",
+                "pygeoapi.io/job_start_datetime": "2024-12-11T13:22:24.093812Z",
+            },
+        },
+        "spec": {
+            "arguments": {"parameters": [{"name": "inpfile", "value": "test2.txt"}]},
+            "entrypoint": "test",
+            "workflowTemplateRef": {"name": "workflow-template-test"},
+        },
+        "status": {
+            "artifactGCStatus": {"notSpecified": True},
+            "artifactRepositoryRef": {"artifactRepository": {}, "default": True},
+            "conditions": [
+                {"status": "False", "type": "PodRunning"},
+                {"status": "True", "type": "Completed"},
+            ],
+            "finishedAt": "2024-09-18T12:01:12Z",
+            "phase": "Succeeded",
+            "progress": "1/1",
+            "resourcesDuration": {"cpu": 0, "memory": 3},
+            "startedAt": "2024-09-18T12:01:02Z",
+            "taskResultsCompletionStatus": {"workflow-test-instance-4": True},
+        },
+    }
 
 
 @pytest.fixture()

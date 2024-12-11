@@ -1,3 +1,6 @@
+## 1.6.3
+* Fetch logs for 21 day from job start
+
 ## 1.6.2
 * Handle errors from job subscriptions more gracefully
 

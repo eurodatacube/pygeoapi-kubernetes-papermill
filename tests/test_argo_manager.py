@@ -172,55 +172,23 @@ def mock_create_workflow():
         yield mocker
 
 
-MOCK_WORKFLOW = {
-    "apiVersion": "argoproj.io/v1alpha1",
-    "kind": "Workflow",
-    "metadata": {
-        "name": "workflow-test-instance-4",
-        "namespace": "test",
-        "annotations": {
-            "pygeoapi.io/identifier": "annotations-identifier",
-        },
-    },
-    "spec": {
-        "arguments": {"parameters": [{"name": "inpfile", "value": "test2.txt"}]},
-        "entrypoint": "test",
-        "workflowTemplateRef": {"name": "workflow-template-test"},
-    },
-    "status": {
-        "artifactGCStatus": {"notSpecified": True},
-        "artifactRepositoryRef": {"artifactRepository": {}, "default": True},
-        "conditions": [
-            {"status": "False", "type": "PodRunning"},
-            {"status": "True", "type": "Completed"},
-        ],
-        "finishedAt": "2024-09-18T12:01:12Z",
-        "phase": "Succeeded",
-        "progress": "1/1",
-        "resourcesDuration": {"cpu": 0, "memory": 3},
-        "startedAt": "2024-09-18T12:01:02Z",
-        "taskResultsCompletionStatus": {"workflow-test-instance-4": True},
-    },
-}
-
-
 @pytest.fixture()
-def mock_get_workflow():
+def mock_get_workflow(workflow):
     # NOTE: mocks same function as get_workflow_template
     with mock.patch(
         "pygeoapi_kubernetes_papermill."
         "kubernetes.k8s_client.CustomObjectsApi.get_namespaced_custom_object",
-        return_value=MOCK_WORKFLOW,
+        return_value=workflow,
     ) as mocker:
         yield mocker
 
 
 @pytest.fixture()
-def mock_list_workflows():
+def mock_list_workflows(workflow):
     with mock.patch(
         "pygeoapi_kubernetes_papermill."
         "kubernetes.k8s_client.CustomObjectsApi.list_namespaced_custom_object",
-        return_value={"items": [MOCK_WORKFLOW]},
+        return_value={"items": [workflow]},
     ) as mocker:
         yield mocker
 

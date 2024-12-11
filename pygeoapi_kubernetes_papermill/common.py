@@ -401,6 +401,10 @@ def now_str() -> str:
     return datetime.now(timezone.utc).strftime(DATETIME_FORMAT)
 
 
+def parse_pygeoapi_datetime(date_string: str) -> datetime:
+    return datetime.strptime(date_string, DATETIME_FORMAT)
+
+
 JobDict = TypedDict(
     "JobDict",
     {
@@ -408,6 +412,7 @@ JobDict = TypedDict(
         "status": str,
         "result-notebook": str,
         "message": str,
+        "job_start_datetime": Optional[str],
         "job_end_datetime": Optional[str],
     },
     total=False,
