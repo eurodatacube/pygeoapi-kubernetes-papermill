@@ -118,6 +118,7 @@ class KubernetesManager(BaseManager):
             # NOTE: this starts a thread per WSGI_WORKER, which is not optimal
             # the eoxhub use case uses only 1 worker, so it's trivially fine.
             # not sure how this can be solved cleanly on different web servers.
+            # Lock file?
             Thread(
                 group=None,
                 target=job_babysitter,
