@@ -1,4 +1,4 @@
-## Unreleased
+## 1.6.4 (2024-12-12)
 
 ## 1.6.3
 * Fetch logs for 21 day from job start
