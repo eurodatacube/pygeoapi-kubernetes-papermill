@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - "*"
-    branches:
-      - helm-chart  # for testing now
 
 jobs:
   build_and_push:
@@ -27,28 +25,28 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # - name: Build
-      #   id: docker_build
-      #   uses: docker/build-push-action@v2
-      #   with:
-      #     load: true
-      #     tags: |
-      #       eurodatacube/pygeoapi-eoxhub:${{ steps.get_image_tag.outputs.TAG }}
+      - name: Build
+        id: docker_build
+        uses: docker/build-push-action@v2
+        with:
+          load: true
+          tags: |
+            eurodatacube/pygeoapi-eoxhub:${{ steps.get_image_tag.outputs.TAG }}
 
       - name: "Git checkout"
         uses: actions/checkout@v2
 
-      #- name: test and push
-      #  run: |
-      #    IMG="eurodatacube/pygeoapi-eoxhub:${{ steps.get_image_tag.outputs.TAG }}"
-      #    docker run --env PYGEOAPI_CONFIG=/pkp/tests/pygeoapi-test-config.yaml --env PYGEOAPI_OPENAPI=/pygeoapi/tests/pygeoapi-test-openapi.yml --entrypoint python3 "${IMG}" -m pytest || exit 1
-      #    docker run --entrypoint flake8 "${IMG}" pygeoapi_kubernetes_papermill tests || exit 1
-      #    docker run --entrypoint mypy "${IMG}" pygeoapi_kubernetes_papermill tests || exit 1
-      #    docker push "${IMG}"
+      - name: test and push
+        run: |
+          IMG="eurodatacube/pygeoapi-eoxhub:${{ steps.get_image_tag.outputs.TAG }}"
+          docker run --env PYGEOAPI_CONFIG=/pkp/tests/pygeoapi-test-config.yaml --env PYGEOAPI_OPENAPI=/pygeoapi/tests/pygeoapi-test-openapi.yml --entrypoint python3 "${IMG}" -m pytest || exit 1
+          docker run --entrypoint flake8 "${IMG}" pygeoapi_kubernetes_papermill tests || exit 1
+          docker run --entrypoint mypy "${IMG}" pygeoapi_kubernetes_papermill tests || exit 1
+          docker push "${IMG}"
 
       - name: Install Helm
         uses: azure/setup-helm@v4.2.0
-          
+
       - name: Publish Helm chart
         run: |
           helm package pygeoapi-eoxhub
