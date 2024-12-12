@@ -52,4 +52,6 @@ jobs:
       - name: Publish Helm chart
         run: |
           helm package pygeoapi-eoxhub
-          curl --user "${{ secrets.CHARTMUSEUM_USERNAME }}:${{ secrets.CHARTMUSEUM_PASSWORD }}" --data-binary "@pygeoapi-eoxhub-${{ steps.get_image_tag.outputs.TAG }}.tgz" https://charts-public.hub.eox.at/api/charts
+          HELM_PACKAGE="pygeoapi-eoxhub-${{ steps.get_image_tag.outputs.TAG }}.tgz"
+          echo "Uploading $HELM_PACKAGE"
+          curl --user "${{ secrets.CHARTMUSEUM_USERNAME }}:${{ secrets.CHARTMUSEUM_PASSWORD }}" --data-binary "@${HELM_PACKAGE}" steps.get_image_tag.outputs.TAG }}.tgz" https://charts-public.hub.eox.at/api/charts
