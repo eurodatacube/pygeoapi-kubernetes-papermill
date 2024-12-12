@@ -1,0 +1,30 @@
+# we want the job pods to be able to update their status
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "base.fullname" . }}-job
+  labels:
+{{ include "base.labels" . | indent 4 }}
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "base.fullname" . }}-job
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "base.fullname" . }}-job
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "base.fullname" . }}-job
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "base.fullname" . }}-job
+rules:
+  - apiGroups: ["batch"]
+    verbs: ["patch"]
+    resources:
+      - jobs

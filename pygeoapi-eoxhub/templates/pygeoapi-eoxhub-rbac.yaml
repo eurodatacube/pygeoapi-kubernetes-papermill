@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "base.fullname" . }}
+  labels:
+{{ include "base.labels" . | indent 4 }}
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "base.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "base.fullname" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "base.fullname" . }}
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "base.fullname" . }}
+rules:
+  - apiGroups: ["batch"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+    resources:
+      - jobs
+      - jobs/status
+  - apiGroups: [""]
+    verbs: ["get"]
+    resources:
+      - resourcequotas
+      - secrets
+  - apiGroups: [""]
+    verbs: ["list"]
+    resources:
+      - pods
+      - events
+      - secrets
+  - apiGroups: [""]
+    verbs: ["delete"]
+    resources:
+      - pods
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "base.fullname" . }}-argo
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "base.fullname" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "base.fullname" . }}-argo
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "base.fullname" . }}-argo
+rules:
+  - apiGroups: ["argoproj.io"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+    resources:
+      - workflows
+  - apiGroups: ["argoproj.io"]
+    verbs: ["get", "list", "watch"]
+    resources:
+      - workflowtemplates

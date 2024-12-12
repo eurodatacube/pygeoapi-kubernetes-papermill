@@ -1,0 +1,33 @@
+{{ if .Values.ingressEnabled }}
+{{- $fullName := include "base.fullname" . -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+  labels:
+{{ include "base.labels" . | indent 4 }}
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '600'
+    nginx.ingress.kubernetes.io/enable-cors: 'true'
+    # this is a reimplementation of nginx.ingress.kubernetes.io/cors-expose-headers
+    # that annotations seem to have no effect :'(
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header 'Access-Control-Expose-Headers' 'Location' always;
+spec:
+  rules:
+  - host: {{ include "base.ingressUrl" . }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ $fullName }}
+            port:
+              name: http
+  tls:
+  - hosts:
+    - {{ include "base.ingressUrl" . }}
+    secretName: wildcard-tls
+{{ end }}

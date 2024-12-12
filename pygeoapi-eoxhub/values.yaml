@@ -1,0 +1,107 @@
+existingNfs:
+  enabled: true
+  nfsServer: "fs-67cadc3e.efs.eu-central-1.amazonaws.com"
+  nfsShare: "edc-jupyter-user-pvc-3157bd51-f57d-11e9-adac-062139e27092"
+
+
+    
+extraVolumes: []
+  # - name: shared
+  #   persistentVolumeClaim:
+  #     claimName: jupyterhub-core-shared
+extraVolumeMounts: []
+  # - mountPath: /home/jovyan/extra
+  #   name: shared
+  #   subPath: "eurodatacube0"
+
+
+# DEPRECATED: this syntax only allows 1 mount per volume
+extraPvcs: []
+  #- claim_name: ama-jupyter-eox
+  #  mount_path: /home/jovyan/eox
+  #  sub_path: my-dir  # optional
+
+
+defaultImage: "527538141574.dkr.ecr.eu-central-1.amazonaws.com/eurodatacube-jupyter-user:0.24.5"
+allowedImagesRegex: ""
+imagePullSecret: ""
+logOutput: false
+
+s3:
+  enabled: false
+  bucketName: ""
+  secretName: "edc-bucket"
+  mountPath: ""  # only image mode
+  s3Url: "https://s3-eu-central-1.amazonaws.com"
+  # NOTE; this is applied to the job as well as the server
+  resourceLimits: {}
+  resourceRequests: {}
+
+jupyterBaseUrl: "https://edc-jupyter.hub.eox.at"
+
+ingressEnabled: true
+# ingressUrl: "foo.example.com"
+
+outputDirectory: "/home/jovyan/job-output"
+resultsInOutputDir: false
+condaStoreGroups: []  # ["eurodatacube25", "mygroup"]
+
+pygeoapi:
+  # This block concerns the pygeoapi server deployment itself
+  # Other options are intended to affect the job pods
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: hub.jupyter.org/node-purpose
+            operator: In
+            values:
+            - user
+  tolerations: []
+  # tolerations: [{"key": "hub.eox.at/processing", "operator": "Exists", "effect": "NoSchedule"}]
+  logLevel: INFO  # "DEBUG" for more verbosity
+
+secrets: []
+autoMountSecrets: False
+
+checkoutGitRepo:
+  enabled: false
+  url: ""
+  secretName: "pygeoapi-git"
+
+# NOTE: this is about the job pod, not the pygeoapi server job
+nodePurposeLabelKey: "hub.eox.at/node-purpose"
+defaultNodePurpose: "c1"
+allowedNodePurposesRegex: ""
+tolerations: []
+# tolerations: [{"key": "hub.eox.at/processing", "operator": "Exists", "effect": "NoSchedule"}]
+
+results:
+  resultsLinkTemplate: ""  # link with job_id as template parameter as in "example.com/{job_id}"
+
+job:
+  mode: "notebook"  # or 'argo' or 'image'
+
+  logQueryEndpoint: ""
+
+  # TODO: move other global values to job (breaking change)
+  runAsUser: null
+  runAsGroup: null
+
+  extraResourceLimits: {}
+  extraResourceRequests: {}
+
+  command: ""  # only image mode
+  parametersEnv: {}  # only image mode
+
+fargate:
+  allow: false
+
+# NOTE: if the fullname is overridden to be pygeoapi, we don't need this svc
+enableEoxhubGatewayService: false
+enableEoxhubAppAnnotations: false
+
+genericProcesses: []
+
+argoWorkflows: []  # 

@@ -1,0 +1,297 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: {{ include "base.fullname" . }}
+  labels:
+{{ include "base.labels" . | indent 4 }}
+data:
+  local.config.yml: |
+    server:
+        bind:
+            host: 0.0.0.0
+            port: 80
+        url: https://{{ include "base.ingressUrl" . }}
+        mimetype: application/json; charset=UTF-8
+        encoding: utf-8
+        language: en-US
+        # cors: true
+        pretty_print: true
+        limit: 10
+        map:
+            url: https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png
+            attribution: '<a href="https://wikimediafoundation.org/wiki/Maps_Terms_of_Use">Wikimedia maps</a> | Map data &copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+        # ogc_schemas_location: /opt/schemas.opengis.net
+
+        manager:
+            {{- if eq .Values.job.mode "argo" }}
+            name: pygeoapi_kubernetes_papermill.ArgoManager
+            {{- else }}
+            name: pygeoapi_kubernetes_papermill.KubernetesManager
+            {{- end }}
+
+            log_query_endpoint: "{{ .Values.job.logQueryEndpoint }}"
+            results_link_template: "{{ .Values.results.resultsLinkTemplate }}"
+
+    logging:
+        level: {{ .Values.pygeoapi.logLevel }}
+        #logfile: /tmp/pygeoapi.log
+
+    metadata:
+        identification:
+            title: "{{ .Release.Name }}"
+            description: pygeoapi provides an API to geospatial processing on EOxHub
+            keywords:
+                - geospatial
+                - data
+                - api
+                - processing
+            keywords_type: theme
+            terms_of_service: https://creativecommons.org/licenses/by/4.0/
+            url: https://eurodatacube.com/dashboard
+        license:
+            name: CC-BY 4.0 license
+            url: https://creativecommons.org/licenses/by/4.0/
+        provider:
+            name: EOX
+            url: https://eox.at
+        contact:
+            name: EOX
+            position: Provider
+            address: Thurngasse 8/4
+            city: Wien
+            stateorprovince: Vienna
+            postalcode: 1090
+            country: Österreich / Austria
+            phone: +43 664 6207655
+            fax: null
+            email: hub@eox.at
+            url: https://eurodatacube.com/support
+            hours: null
+            instructions: null
+            role: pointOfContact
+
+    resources:
+      {{ if eq .Values.job.mode "notebook" }}
+      execute-notebook:
+        type: process
+        processor:
+          name: pygeoapi_kubernetes_papermill.PapermillNotebookKubernetesProcessor
+          default_image: "{{ .Values.defaultImage }}"
+          allowed_images_regex: "{{ .Values.allowedImagesRegex }}"
+          image_pull_secret: "{{ .Values.imagePullSecret }}"
+          {{ if .Values.s3.enabled }}
+          s3:
+            bucket_name: "{{ .Values.s3.bucketName }}"
+            secret_name: "{{ .Values.s3.secretName }}"
+            s3_url: "{{ .Values.s3.s3Url }}"
+            resource_limits:
+              {{- toYaml .Values.s3.resourceLimits | nindent 14 }}
+            resource_requests:
+              {{- toYaml .Values.s3.resourceRequests | nindent 14 }}
+
+          {{ end }}
+          output_directory: "{{ .Values.outputDirectory }}"
+          home_volume_claim_name: "{{ if .Values.existingNfs.enabled }}user-{{ .Release.Name }}{{ end }}"
+          {{ if empty .Values.extraPvcs }}
+          extra_pvcs: []
+          {{ else }}
+          extra_pvcs:
+            {{- toYaml .Values.extraPvcs | nindent 10 }}
+          {{ end }}
+
+          {{- if empty .Values.extraVolumes }}
+          extra_volumes: []
+          {{- else }}
+          extra_volumes:
+          {{ toYaml .Values.extraVolumes | indent 10 | trim }}
+          {{- end }}
+
+          {{- if empty .Values.extraVolumeMounts }}
+          extra_volume_mounts: []
+          {{- else }}
+          extra_volume_mounts:
+          {{ toYaml .Values.extraVolumeMounts | indent 10 | trim }}
+          {{- end }}
+
+
+          jupyter_base_url: "{{ .Values.jupyterBaseUrl }}"
+          {{ if empty .Values.secrets }}
+          secrets: []
+          {{ else }}
+          secrets:
+            {{- toYaml .Values.secrets | nindent 10 }}
+          {{ end }}
+          auto_mount_secrets: {{ .Values.autoMountSecrets }}
+          {{ if .Values.checkoutGitRepo.enabled }}
+          checkout_git_repo:
+            url: "{{ .Values.checkoutGitRepo.url }}"
+            secret_name: "{{ .Values.checkoutGitRepo.secretName }}"
+          {{ end }}
+          log_output: {{ .Values.logOutput }}
+          default_node_purpose: {{ .Values.defaultNodePurpose }}
+          allowed_node_purposes_regex: {{ .Values.allowedNodePurposesRegex }}
+          {{ if empty .Values.tolerations }}
+          tolerations: []
+          {{ else }}
+          tolerations:
+{{ toYaml .Values.tolerations  | indent 10}}
+          {{ end }}
+          job_service_account: {{ include "base.fullname" . }}-job
+          allow_fargate: {{ .Values.fargate.allow }}
+          node_purpose_label_key: {{ .Values.nodePurposeLabelKey }}
+          run_as_user: {{ .Values.job.runAsUser }}
+          run_as_group: {{ .Values.job.runAsGroup }}
+          {{ if .Values.resultsInOutputDir }}
+          results_in_output_dir: true
+          {{ end }}
+          {{ if empty .Values.condaStoreGroups }}
+          conda_store_groups: []
+          {{ else }}
+          conda_store_groups:
+{{ toYaml .Values.condaStoreGroups  | indent 10}}
+          {{ end }}
+          extra_resource_limits:
+            {{- toYaml .Values.job.extraResourceLimits | nindent 12 }}
+          extra_resource_requests:
+            {{- toYaml .Values.job.extraResourceRequests | nindent 12 }}
+
+
+      {{ else if eq .Values.job.mode "image" }}
+      execute-image:
+        type: process
+        processor:
+          name: pygeoapi_kubernetes_papermill.ContainerImageKubernetesProcessor
+          default_image: "{{ .Values.defaultImage }}"
+          command: "{{ .Values.job.command }}"
+          allowed_images_regex: "{{ .Values.allowedImagesRegex }}"
+          image_pull_secret: "{{ .Values.imagePullSecret }}"
+          {{ if .Values.s3.enabled }}
+          s3:
+            bucket_name: "{{ .Values.s3.bucketName }}"
+            secret_name: "{{ .Values.s3.secretName }}"
+            mount_path: "{{ .Values.s3.mountPath }}"
+            s3_url: "{{ .Values.s3.s3Url }}"
+            resource_limits:
+              {{- toYaml .Values.s3.resourceLimits | nindent 14 }}
+            resource_requests:
+              {{- toYaml .Values.s3.resourceRequests | nindent 14 }}
+
+          {{ end }}
+          {{- if empty .Values.extraVolumes }}
+          extra_volumes: []
+          {{- else }}
+          extra_volumes:
+          {{ toYaml .Values.extraVolumes | indent 10 | trim }}
+          {{- end }}
+
+          {{- if empty .Values.extraVolumeMounts }}
+          extra_volume_mounts: []
+          {{- else }}
+          extra_volume_mounts:
+          {{ toYaml .Values.extraVolumeMounts | indent 10 | trim }}
+          {{- end }}
+
+          {{ if empty .Values.secrets }}
+          secrets: []
+          {{ else }}
+          secrets:
+            {{- toYaml .Values.secrets | nindent 10 }}
+          {{ end }}
+
+          default_node_purpose: {{ .Values.defaultNodePurpose }}
+          allowed_node_purposes_regex: {{ .Values.allowedNodePurposesRegex }}
+          {{ if empty .Values.tolerations }}
+          tolerations: []
+          {{ else }}
+          tolerations:
+{{ toYaml .Values.tolerations  | indent 10}}
+          {{ end }}
+          allow_fargate: {{ .Values.fargate.allow }}
+          node_purpose_label_key: {{ .Values.nodePurposeLabelKey }}
+
+          {{- if .Values.job.parametersEnv }}
+          parameters_env:
+            {{- toYaml .Values.job.parametersEnv| nindent 12 }}
+          {{- else }}
+          parameters_env: {}
+          {{- end }}
+
+      {{ end }}
+
+      {{- range .Values.genericProcesses }}
+      {{ .id }}:
+        type: process
+        processor:
+          name: pygeoapi_kubernetes_papermill.ContainerImageKubernetesProcessor
+          id: {{ .id }}
+          title: {{ .title }}
+          version: {{ .version }}
+          {{- if empty .inputs }}
+          inputs: []
+          {{- else }}
+          inputs:
+            {{ toYaml .inputs | indent 12 | trim }}
+          {{- end }}
+
+          default_image: "{{ .defaultImage }}"
+          command: "{{ .command }}"
+          allowed_images_regex: "{{ .allowedImagesRegex }}"
+          image_pull_secret: "{{ .imagePullSecret }}"
+          {{- if .s3.enabled }}
+          s3:
+            bucket_name: "{{ .s3.bucketName }}"
+            secret_name: "{{ .s3.secretName }}"
+            mount_path: "{{ .s3.mountPath }}"
+            s3_url: "{{ .s3.s3Url }}"
+            resource_limits:
+              {{- toYaml .Values.s3.resourceLimits | nindent 14 }}
+            resource_requests:
+              {{- toYaml .Values.s3.resourceRequests | nindent 14 }}
+          {{- end }}
+          {{- if empty .extraVolumes }}
+          extra_volumes: []
+          {{- else }}
+          extra_volumes:
+          {{ toYaml .extraVolumes | indent 10 | trim }}
+          {{- end }}
+
+          {{- if empty .extraVolumeMounts }}
+          extra_volume_mounts: []
+          {{- else }}
+          extra_volume_mounts:
+          {{ toYaml .extraVolumeMounts | indent 10 | trim }}
+          {{- end }}
+
+          {{- if empty .secrets }}
+          secrets: []
+          {{- else }}
+          secrets:
+            {{- toYaml .secrets | nindent 10 }}
+          {{- end }}
+          default_node_purpose: {{ .defaultNodePurpose }}
+          allowed_node_purposes_regex: {{ .allowedNodePurposesRegex }}
+          {{- if empty .tolerations }}
+          tolerations: []
+          {{- else }}
+          tolerations:
+     toYa .tolerations  | indent 10}}
+          {{- end }}
+          allow_fargate: {{ .fargate.allow }}
+          node_purpose_label_key: {{ .nodePurposeLabelKey }}
+
+          {{- if .parametersEnv }}
+          parameters_env:
+            {{- toYaml .parametersEnv| nindent 12 }}
+          {{- else }}
+          parameters_env: {}
+          {{- end }}
+
+      {{- end }}
+
+      {{- range .Values.argoWorkflows }}
+      {{ .id }}:
+        type: process
+        processor:
+          name: pygeoapi_kubernetes_papermill.ArgoProcessor
+          workflow_template: {{ .workflowTemplate }}
+      {{- end }}

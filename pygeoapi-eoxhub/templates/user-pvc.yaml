@@ -1,0 +1,13 @@
+{{ if .Values.existingNfs.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: user-{{ .Release.Name }}
+spec:
+  storageClassName: ""
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Mi
+{{ end }}

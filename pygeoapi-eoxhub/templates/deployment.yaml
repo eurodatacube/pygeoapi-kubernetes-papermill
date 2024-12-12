@@ -1,0 +1,157 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "base.fullname" . }}
+  labels:
+{{ include "base.labels" . | indent 4 }}
+{{ if .Values.enableEoxhubAppAnnotations }}
+  annotations:
+    eoxhub/app-name: "Headless"
+    eoxhub/app-logo: "https://pygeoapi.io/img/pygeoapi-logo.png"
+    eoxhub/stop-if-unused: "false"
+{{ end }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "base.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "base.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        # force k8s to restart pod to apply config changes
+        # https://v3.helm.sh/docs/howto/charts_tips_and_tricks/#automatically-roll-deployments
+        rollme: {{ randAlphaNum 5 | quote }}
+    spec:
+      serviceAccountName: {{ include "base.fullname" . }}
+      containers:
+        - name: {{ include "base.name" . }}
+          image: eurodatacube/pygeoapi-eoxhub:{{ .Chart.AppVersion }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          env:
+          {{- range $name, $value := .Values.env }}
+          {{- if not (empty $value) }}
+            - name: {{ $name | quote }}
+              value: {{ $value | quote }}
+          {{- end }}
+          {{- end }}
+            - name: WSGI_WORKERS
+              value: "1"
+          livenessProbe:
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            failureThreshold: 5
+            httpGet:
+              path: /conformance
+              port: 80
+          readinessProbe:
+            httpGet:
+              path: /conformance
+              port: 80
+          resources:
+            limits:
+              cpu: "200m"
+              memory: "300Mi"
+            requests:
+              cpu: "100m"
+              memory: "150Mi"
+          volumeMounts:
+          - name: pygeoapi-config
+            mountPath: "/pygeoapi/local.config.yml"
+            subPath: local.config.yml
+          {{- if .Values.existingNfs.enabled }}
+          - name: user-home
+            # mount same as actual user pod such that we don't have to translate dirs
+            mountPath: /home/jovyan
+          {{- end }}
+          {{- if .Values.s3.enabled }}
+          - mountPath: /home/jovyan/s3
+            mountPropagation: HostToContainer
+            name: s3-user-bucket
+          {{- end }}
+          {{- range $pvcIndex, $extraPvc := .Values.extraPvcs }}
+          - name: extra-{{ $pvcIndex }}
+            mountPath: {{ $extraPvc.mount_path }}
+            {{ if $extraPvc.sub_path }}
+            subPath: {{ $extraPvc.sub_path }}
+            {{ end }}
+          {{- end }}
+          {{- range .Values.extraVolumeMounts }}
+          - {{ . | toYaml | indent 12 | trim}}
+          {{- end }}
+        {{- if .Values.s3.enabled }}
+        - name: s3mounter
+          env:
+          - name: S3FS_ARGS
+            value: -oallow_other
+          - name: AWS_S3_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                key: username
+                name: "{{ .Values.s3.secretName }}"
+          - name: AWS_S3_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                key: password
+                name: "{{ .Values.s3.secretName }}"
+          - name: AWS_S3_BUCKET
+            value: "{{ .Values.s3.bucketName }}"
+          - name: AWS_S3_URL
+            value: "{{ .Values.s3.s3Url }}"
+          image: totycro/s3fs:0.13.0-1.91
+          livenessProbe:
+            exec:
+              command:
+              - sh
+              - -c
+              - pgrep s3fs > /dev/null
+          resources:
+            limits:
+              cpu: {{ .Values.s3.resourceLimits.cpu | default "0.2" }}
+              memory: {{ .Values.s3.resourceLimits.memory | default "512Mi" }}
+            requests:
+              cpu: {{ .Values.s3.resourceRequests.cpu | default "0.05" }}
+              memory: {{ .Values.s3.resourceRequests.memory | default "32Mi" }}
+          securityContext:
+            privileged: true
+          volumeMounts:
+          - mountPath: /opt/s3fs/bucket
+            mountPropagation: Bidirectional
+            name: s3-user-bucket
+          {{- end }}
+      volumes:
+      - name: pygeoapi-config
+        configMap:
+          name: {{ include "base.fullname" . }}
+      {{- if .Values.existingNfs.enabled }}
+      - name: user-home
+        persistentVolumeClaim:
+          claimName: user-{{ .Release.Name }}
+      {{- end }}
+      {{- if .Values.s3.enabled }}
+      - emptyDir: {}
+        name: s3-user-bucket
+      {{- end }}
+      {{- range $pvcIndex, $extraPvc := .Values.extraPvcs }}
+      - name: extra-{{ $pvcIndex }}
+        persistentVolumeClaim:
+          claimName: {{ $extraPvc.claim_name }}
+      {{- end }}
+      {{- range .Values.extraVolumes }}
+      - {{ . | toYaml | nindent 8 | trim }}
+      {{- end }}
+      nodeSelector: {}
+      {{- if .Values.pygeoapi.affinity }}
+      affinity:
+        {{- .Values.pygeoapi.affinity | toYaml | nindent 8 -}}
+      {{ end }}
+      {{- if .Values.pygeoapi.tolerations }}
+      tolerations:
+        {{- .Values.pygeoapi.tolerations | toYaml | nindent 8 -}}
+      {{ end }}
