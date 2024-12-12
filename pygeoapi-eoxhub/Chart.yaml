@@ -1,11 +1,9 @@
 apiVersion: v1
 description: pygeoapi-eoxhub
-icon: https://raw.githubusercontent.com/eurodatacube/charts/master/pygeoapi-eoxhub/logo.svg?sanitize=true
-keywords:
-- requirement:eoxhub
-maintainers:
-- name: 0c0a0ef4-8d0d-4e70-b002-033c7cbb41fd
+icon: https://raw.githubusercontent.com/eurodatacube/pygeoapi-kubernetes-papermill/main/pygeoapi-eoxhub/logo.svg?sanitize=true
+keywords: []
+maintainers: []
 name: pygeoapi-eoxhub
-sources:
+sources: []
 version: 1.6.3
 appVersion: 1.6.3
