@@ -120,3 +120,18 @@ Clone a git repo to /home/jovyan/git/algorithm before the job starts. Useful to 
 
 `log_output`:
 Boolean, whether to enable `--log-output` in papermill.
+
+
+## Development
+
+
+### Release
+
+Use commitizen for releases:
+
+```
+cz bump
+```
+
+Then push the commit and the tags if the release commit looks fine.
+The docker image will be pushed to dockerhub and the helm chart to a chartmuseum deployment by a GitHub Action.
