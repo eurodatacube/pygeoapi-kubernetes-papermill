@@ -1,3 +1,9 @@
+## 1.7.0 (2025-02-05)
+
+### Feat
+
+- Put eoxhub annotation also in service
+
 ## 1.6.5 (2024-12-12)
 
 ## 1.6.4 (2024-12-12)

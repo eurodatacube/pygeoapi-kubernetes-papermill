@@ -2,7 +2,7 @@
 name = "cz_conventional_commits"
 tag_format = "$major.$minor.$patch$prerelease"
 version_scheme = "semver"
-version = "1.6.5"
+version = "1.7.0"
 update_changelog_on_bump = true
 version_files = [
     "pygeoapi-eoxhub/Chart.yaml"
