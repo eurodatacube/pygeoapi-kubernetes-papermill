@@ -4,6 +4,14 @@ metadata:
   name: {{ include "base.fullname" . }}
   labels:
 {{ include "base.labels" . | indent 4 }}
+{{ if .Values.enableEoxhubAppAnnotations }}
+  # NOTE: more recent eoxhubs need the annoations only in the servce, here it's still duplicated for compatibility
+  annotations:
+    eoxhub/app-name: "Headless"
+    eoxhub/app-logo: "https://pygeoapi.io/img/pygeoapi-logo.png"
+    eoxhub/stop-if-unused: "false"
+{{ end }}
+
 spec:
   type: ClusterIP
   ports:
